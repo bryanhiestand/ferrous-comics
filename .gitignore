@@ -1,0 +1,4 @@
+.env
+target/
+comics/
+xkcd_history.txt
