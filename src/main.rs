@@ -251,7 +251,7 @@ fn fetch_comic(agent: &ureq::Agent) -> anyhow::Result<Comic> {
         .call()
         .map_err(|e| match e {
             ureq::Error::Status(code, _) => anyhow::anyhow!("xkcd API returned HTTP {code}"),
-            ureq::Error::Transport(t) => anyhow::anyhow!("failed to reach xkcd API: {t}"),
+            ureq::Error::Transport(t) => anyhow::Error::new(t).context("failed to reach xkcd API"),
         })?
         .into_json::<Comic>()
         .context("failed to parse xkcd JSON")?;
@@ -277,7 +277,9 @@ fn download_image(agent: &ureq::Agent, comic: &Comic) -> anyhow::Result<PathBuf>
         .call()
         .map_err(|e| match e {
             ureq::Error::Status(code, _) => anyhow::anyhow!("image URL returned HTTP {code}"),
-            ureq::Error::Transport(t) => anyhow::anyhow!("failed to fetch comic image: {t}"),
+            ureq::Error::Transport(t) => {
+                anyhow::Error::new(t).context("failed to fetch comic image")
+            }
         })?
         .into_reader()
         .read_to_end(&mut bytes)
