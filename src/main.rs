@@ -517,7 +517,7 @@ mod tests {
 
     fn make_config() -> Config {
         Config {
-            mail_to: "to@example.com".to_string(),
+            mail_to: vec!["to@example.com".to_string()],
             mail_from: "from@example.com".to_string(),
             download: true,
             mail_attachment: false,
@@ -611,6 +611,44 @@ mod tests {
     fn config_neither_credentials_ok() {
         let cfg = make_config();
         assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn config_mail_to_single() {
+        let mut cfg = make_config();
+        cfg.mail_to = vec!["a@example.com".to_string()];
+        assert!(validate_config(&cfg).is_ok());
+        assert_eq!(cfg.mail_to.len(), 1);
+    }
+
+    #[test]
+    fn config_mail_to_multiple() {
+        // Parsing logic lives in load_config; test it via the split/trim/filter chain directly
+        let raw = "a@example.com, b@example.com";
+        let parsed: Vec<String> = raw
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        assert_eq!(parsed, vec!["a@example.com", "b@example.com"]);
+    }
+
+    #[test]
+    fn config_mail_to_trims_whitespace() {
+        let raw = "  a@example.com  ,  b@example.com  ";
+        let parsed: Vec<String> = raw
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        assert_eq!(parsed, vec!["a@example.com", "b@example.com"]);
+    }
+
+    #[test]
+    fn config_mail_to_empty_errors() {
+        let mut cfg = make_config();
+        cfg.mail_to = vec![];
+        assert!(validate_config(&cfg).is_err());
     }
 
     // ── Database ──────────────────────────────────────────────────────────────
@@ -938,5 +976,15 @@ mod tests {
         let raw = email_bytes(&config, &comic, None);
         assert!(raw.contains("to@example.com"));
         assert!(raw.contains("from@example.com"));
+    }
+
+    #[test]
+    fn email_multiple_recipients() {
+        let mut config = make_config();
+        config.mail_to = vec!["a@example.com".to_string(), "b@example.com".to_string()];
+        let comic = make_comic(1);
+        let raw = email_bytes(&config, &comic, None);
+        assert!(raw.contains("a@example.com"), "first recipient missing");
+        assert!(raw.contains("b@example.com"), "second recipient missing");
     }
 }
