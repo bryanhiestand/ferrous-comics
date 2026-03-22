@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "c50941b47d04",
+  "session_id": "c4d033a5-3a55-49f3-aca0-7f0a05abc7a9",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-22T02:51:07.241365Z",
+  "branch": "history-to-redb",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "README.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "e7f8b9ce705b",
+  "checkpoint_transcript_start": 259,
+  "transcript_lines_at_start": 259,
+  "token_usage": {
+    "input_tokens": 11,
+    "cache_creation_tokens": 4158,
+    "cache_read_tokens": 571596,
+    "output_tokens": 1287,
+    "api_call_count": 7
+  },
+  "session_metrics": {
+    "turn_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-22T02:51:07.097785Z",
+    "agent_lines": 1,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1,
+    "agent_percentage": 100
+  }
+}

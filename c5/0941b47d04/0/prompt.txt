@@ -1,0 +1,5 @@
+why not use the social preview in the readme instead?
+
+---
+
+if we do that, don't we also need to add the file to git again?
