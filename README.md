@@ -1,5 +1,7 @@
 # ferrous-comics
 
+<img src="assets/logo.svg" width="96" alt="ferrous-comics logo"/>
+
 Emails the latest xkcd comic to the recipient specified in settings.
 
 Checks xkcd's latest comic using the xkcd API at <https://xkcd.com/info.0.json>
