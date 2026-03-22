@@ -2,3 +2,4 @@
 target/
 comics/
 xkcd_history.txt
+.claude/settings.local.json
