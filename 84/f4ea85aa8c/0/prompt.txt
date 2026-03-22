@@ -1,0 +1,90 @@
+I accidentally merged PR #1 as a series of commits instead of a squash merge. Rewrite the history of the repo on branch main so it's just one initial commit of everything, using the PR message I tried to make (I can review that before you apply it). Then fix my current branch with that new history
+
+---
+
+push for me
+
+---
+
+why did this close my PR?
+
+---
+
+I can't reopen, that is greyed out
+
+---
+
+the social preview is too cropped. anything we can do?
+
+---
+
+no, it needs to be converted to png
+
+---
+
+we merged pr #3, but it failed to build:
+Compiling ferrous-comics v0.1.0 (/home/runner/work/ferrous-comics/ferrous-comics)
+warning: invoking `"xcrun" "--sdk" "macosx" "--show-sdk-path"` to find MacOSX.sdk failed: No such file or directory (os error 2)
+  |
+  = note: the SDK is needed by the linker to know where to find symbols in system libraries and for embedding the SDK version in the final object file
+  = help: pass the path of an Xcode installation via the DEVELOPER_DIR environment variable, or an SDK with the SDKROOT environment variable
+
+error: linking with `/home/runner/.cache/cargo-zigbuild/0.22.1/zigcc-aarch64-apple-darwin-aeba.sh` failed: exit status: 1
+  |
+  = note:  "/home/runner/.cache/cargo-zigbuild/0.22.1/zigcc-aarch64-apple-darwin-aeba.sh" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/deps/rustc6Jijo8/symbols.o" "<17 object files omitted>" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/deps/{libenv_logger-474d1abab87155fa,libjiff-ecd949d9235282f7,libanstream-a07640103fc22f11,libanstyle_query-8f4b41713a304d80,libis_terminal_polyfill-130f411cf33c2f93,libcolorchoice-450079f8e6f4faa3,libanstyle_parse-c227e1e2f00b9752,libutf8parse-c24a00e46ec43a85,libenv_filter-1d67bdff6ccc6aae,libregex-20e245be8ac042b8,libregex_automata-7151241de66ec7a8,libaho_corasick-927e7aeb1f370c49,libregex_syntax-c807f35719088fbc,libanstyle-f1e59c52dec52afa,libreqwest-395a9746de0c3544,libhyper_rustls-fc0a20c05a8bd346,libtokio_rustls-fd8e3a5ebb3b3565,libserde_urlencoded-b33c1f2588c639d7,libryu-793a8e452ef27093,libtower_http-88eb210dacb8ba93,libbitflags-afdce9bdc48ac0c7,libiri_string-9c44268a009351e8,libtower-1f42367c450940a0,libtower_layer-1c42aa6ecc167bc0,libhyper_util-9143a9c694591aac,libipnet-e89ad6b023e7ebdb,libtower_service-cc46757ad4c31c8d,libtracing-bb6a5a05994c0a69,libtracing_core-fa8ec80ca24dcf51,libhyper-2d70e9eafa27c609,libwant-94b4194311d938bf,libtry_lock-d09bd11526562d5e,libhttparse-fc14a91e701d8e88,libpin_utils-d8fe5631ecdbf11a,libatomic_waker-0b511e09dec44875,libfutures_channel-87577621c25f2399,libtokio-b7e78f0fe54f4f92,libmio-46a31f7f76bf42be,libhttp_body_util-a8b5e9faa209ad9f,libhttp_body-d18028b96846dd9f,libfutures_util-f2b3c61b5df9a3ec,libfutures_io-9d12fcbd4c44040e,libslab-c0159867f91794f6,libpin_project_lite-d8c7eff1a8cbcfec,libfutures_sink-612ce4bd6d18262b,libfutures_task-f60258ee3b858737,libhttp-2f44dadffe285b18,libbytes-83de7ddeca15cc44,libsync_wrapper-5993aa6cc5af495f,libfutures_core-50d02e002f631343,libchrono-4df13fdb7448f659,libiana_time_zone-780eab1bf757c043,libcore_foundation_sys-87fa7343dfc71990,libnum_traits-767366e73238300e,libserde_json-2cd3092c5c7a2346,libitoa-a9fae16475a6c04d,libzmij-89c6dd9a34f086b1,libdotenvy-f5d8632f5127eb9c,libserde-9e824f9a7c7d9053,libserde_core-bbf2828b9cdee96c,libredb-1d076cc1a9530a99,liblettre-936c4418bba2e0ed,libwebpki_roots-22e699cfb717fa3e,REDACTED,libfastrand-3277786c89a8278b,libquoted_printable-66f8c8143c1c27ed,libnom-6fd2ef1bcb3bef4f,liburl-ce590fa9b0f5cfda,libform_urlencoded-f7f3a8ad72570faf,libpercent_encoding-e50fa9d165f06460,libsocket2-80ab5c83be542a30,librustls-40d75152e0271814,libsubtle-4d611e57bd5ac622,libwebpki-509546ee28fe0a19,libring-14379c2dc407b30a,libgetrandom-3d6798716ac95034,libuntrusted-3b0a24b8022f0a84,librustls_pki_types-618bb457492a8165,libzeroize-10fd6709a719cf22,liblog-4ee717957a4fcd5f,libchumsky-d78bb2b4920dfac8,libstacker-635ecbf51d7ec5b4,libpsm-3dbcf9df742ac916,liblibc-d594011f4c5c25cb,libhashbrown-268ff9fb90fdf4ed,libahash-651be01488a79332,libonce_cell-5e3827a57665f67e,libcfg_if-f5f6b32af62b52e1,libzerocopy-d8789091ac5f6fc6,liballocator_api2-4a18170089a0ad0a,libhttpdate-a3a62609100b4a05,libmime-e23db2aa7b0a7c42,libemail_encoding-07d516e88f7ea200,libmemchr-5dcf56b56c7a4c2e,libbase64-6273496ab992170d,libidna-d0508425af86507f,libutf8_iter-f870ed093f86ac68,libidna_adapter-5c12a38543bf97b2,libicu_properties-60b722d15f5bfb95,libicu_properties_data-f4b95b43f4fde253,libicu_normalizer-3f418edc047f8821,libsmallvec-2296c9fe5cc4dc6c,libicu_normalizer_data-8f82601c60698a08,libicu_collections-23ae8424f74861bb,libpotential_utf-113ef4da21f95630,libicu_provider-86784d38523853da,libicu_locale_core-7098217d519d7e3a,libtinystr-91adb84c0f94ed61,liblitemap-c46207e7b265dbee,libwriteable-04209e76716281cf,libzerovec-f925c2963c453239,libzerotrie-b3d7440cf4844c6c,libyoke-7bc67cbbe9cffc18,libstable_deref_trait-ad0262e1d0514971,libzerofrom-026052d6c58e3b46,libemail_address-19e1500a0c326972,libanyhow-e7ee48f4510b538e}.rlib" "<sysroot>/lib/rustlib/aarch64-apple-darwin/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-framework" "CoreFoundation" "-liconv" "-lSystem" "-lc" "-lm" "-arch" "arm64" "-mmacosx-version-min=11.0.0" "-L" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/build/psm-acd79810c403ea24/out" "-L" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/build/ring-69e4ead80b3b51e2/out" "-o" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/deps/ferrous_comics-554445e50c1ba86f" "-Wl,-dead_strip" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: error: unable to find framework 'CoreFoundation'. searched paths:  none
+          
+
+warning: `ferrous-comics` (bin "ferrous-comics") generated 1 warning
+error: could not compile `ferrous-comics` (bin "ferrous-comics") due to 1 previous error; 1 warning emitted
+Error: Process completed with exit code 101.
+
+---
+
+Do all of that, but on a new breach for a v1.1.1 release
+
+---
+
+The release run failed... again. Please:
+1. fix it
+2. implement something in actions for the PR to ensure we won't merge stuff to master that will fail release actions
+
+---
+
+Since your main function isn't async, you should lean toward using a purely synchronus HTTP client, you've pulled in reqwest, which is definitely the best async http client, but you're using the blocking version of it: reqwest::blocking::Client
+
+Internally, the blocking client for reqwest is very heavy handed, it spins up a dedicated async runtime, tokio, and then spawns a blocking thread.
+
+In this circumstance, a non async main, using the ureq library, would be a much better fit, and much more efficient and speedy
+
+---
+
+Evaluate and respond to review feedback from copilot
+
+---
+
+new review feedback
+
+---
+
+new feedback, two comments
+
+ureq::Error::Transport(t) is currently converted into a formatted string via anyhow!("..."), which drops the underlying transport error as a source. This makes error chains/backtraces less actionable than before. Prefer wrapping t as the error (e.g., anyhow::Error::new(t) / anyhow!(t)) and then adding context, so the root cause remains inspectable.
+
+---
+
+Copilot says: PR description claims tokio was removed from the dependency tree (and that cargo tree | grep -E 'tokio|hyper|reqwest' produces no output), but tokio is still present as a transitive dependency (e.g., via lettre in the current Cargo.lock). Please update the PR description/verification section to reflect the actual remaining deps, or adjust features/deps if the intent is truly to eliminate tokio.
+
+---
+
+The practical fix: bump Cargo.toml to version = "1.1.2" (or whatever the next release is) as part of each release PR, and change the USER_AGENT const
+     to:
+
+    const USER_AGENT: &str = concat!("ferrous-comics/", env!("CARGO_PKG_VERSION"));
+
+should the version in cargo.toml be updated by a github action? how can we best automate this?
+
+---
+
+update our claude.md to always conduct an adversarial review with a subagent before opening a PR
