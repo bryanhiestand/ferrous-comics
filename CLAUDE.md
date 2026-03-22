@@ -13,7 +13,9 @@ cargo fmt --check     # check formatting without writing
 cargo test            # run tests
 ```
 
-Always run `cargo fmt` and `cargo clippy -- -D warnings` before committing.
+Always run `cargo fmt`, `cargo clippy -- -D warnings`, and `cargo test` before committing.
+
+When changing any function's behavior or signature, update the corresponding tests in the `#[cfg(test)]` module. When adding new functions, add tests covering the happy path, error cases, and edge cases.
 
 ## Architecture
 
