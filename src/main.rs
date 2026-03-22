@@ -50,7 +50,7 @@ struct Config {
     smtp_starttls: bool,
     smtp_username: Option<String>,
     smtp_password: Option<String>,
-    backfill_limit: usize,
+    backfill_limit: u32,
 }
 
 fn load_config() -> anyhow::Result<Config> {
@@ -532,10 +532,20 @@ fn main() -> anyhow::Result<()> {
     let latest = fetch_comic(&agent, XKCD_BASE_URL)?;
 
     // Determine which comic numbers to process this run, oldest first.
+    // When there is no history and backfill is enabled, start far enough back so that
+    // exactly backfill_limit comics are delivered on the first run.
     let last = last_seen_num(&db)?;
-    let start = last.map(|m| m.saturating_add(1)).unwrap_or(latest.num);
+    let start = last.map(|n| n.saturating_add(1)).unwrap_or_else(|| {
+        if config.backfill_limit > 0 {
+            latest.num.saturating_sub(config.backfill_limit - 1)
+        } else {
+            latest.num
+        }
+    });
     let candidates: Vec<u32> = if config.backfill_limit > 0 {
-        (start..=latest.num).take(config.backfill_limit).collect()
+        (start..=latest.num)
+            .take(config.backfill_limit as usize)
+            .collect()
     } else {
         vec![latest.num]
     };
@@ -1252,10 +1262,16 @@ mod tests {
     // ── backfill candidate logic ──────────────────────────────────────────────
 
     /// Helper: compute backfill candidates using the same logic as main()
-    fn backfill_candidates(last: Option<u32>, latest: u32, limit: usize) -> Vec<u32> {
-        let start = last.map(|m| m.saturating_add(1)).unwrap_or(latest);
+    fn backfill_candidates(last: Option<u32>, latest: u32, limit: u32) -> Vec<u32> {
+        let start = last.map(|n| n.saturating_add(1)).unwrap_or_else(|| {
+            if limit > 0 {
+                latest.saturating_sub(limit - 1)
+            } else {
+                latest
+            }
+        });
         if limit > 0 {
-            (start..=latest).take(limit).collect()
+            (start..=latest).take(limit as usize).collect()
         } else {
             vec![latest]
         }
@@ -1263,8 +1279,14 @@ mod tests {
 
     #[test]
     fn backfill_candidates_empty_db() {
-        // No prior history — only process the latest comic
-        assert_eq!(backfill_candidates(None, 100, 5), vec![100]);
+        // No prior history + backfill enabled → deliver limit comics ending at latest
+        assert_eq!(backfill_candidates(None, 100, 5), vec![96, 97, 98, 99, 100]);
+    }
+
+    #[test]
+    fn backfill_candidates_empty_db_limit_one() {
+        // limit=1 must not underflow (100 - (1-1) = 100)
+        assert_eq!(backfill_candidates(None, 100, 1), vec![100]);
     }
 
     #[test]
