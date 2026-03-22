@@ -30,7 +30,7 @@ All settings are read from environment variables (or a `.env` file) with the `XK
 | `XKCD_MAIL_FROM` | yes | — | Sender email address |
 | `XKCD_SMTP_SERVER` | yes | — | SMTP hostname |
 | `XKCD_SMTP_PORT` | no | `587` | SMTP port |
-| `XKCD_SMTP_TTLS` | no | `true` | Use STARTTLS |
+| `XKCD_SMTP_STARTTLS` | no | `true` | Use STARTTLS |
 | `XKCD_SMTP_USERNAME` | no | — | SMTP username |
 | `XKCD_SMTP_PASSWORD` | no | — | SMTP password |
 | `XKCD_DOWNLOAD` | no | `true` | Download comic image locally |

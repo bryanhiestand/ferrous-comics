@@ -17,6 +17,7 @@ struct Comic {
     num: u32,
     safe_title: String,
     img: String,
+    alt: String,
     year: String,
     month: String,
     day: String,
@@ -30,7 +31,7 @@ struct Config {
     mail_attachment: bool,
     smtp_server: String,
     smtp_port: u16,
-    smtp_ttls: bool,
+    smtp_starttls: bool,
     smtp_username: Option<String>,
     smtp_password: Option<String>,
 }
@@ -59,7 +60,7 @@ fn load_config() -> anyhow::Result<Config> {
             .unwrap_or_else(|_| "587".into())
             .parse()
             .context("XKCD_SMTP_PORT must be a number")?,
-        smtp_ttls: env_bool("XKCD_SMTP_TTLS", true),
+        smtp_starttls: env_bool("XKCD_SMTP_STARTTLS", true),
         smtp_username: std::env::var("XKCD_SMTP_USERNAME").ok(),
         smtp_password: std::env::var("XKCD_SMTP_PASSWORD").ok(),
     };
@@ -94,7 +95,7 @@ fn is_seen(comic: &Comic) -> anyhow::Result<bool> {
 }
 
 fn local_filename(comic: &Comic) -> String {
-    let basename = comic.img.rsplit('/').next().unwrap_or("comic");
+    let basename = comic.img.rsplit('/').next().unwrap_or_else(|| comic.img.as_str());
     format!("{}-{}", comic.num, basename)
 }
 
@@ -132,7 +133,7 @@ fn format_date(comic: &Comic) -> anyhow::Result<String> {
 }
 
 fn build_transport(config: &Config) -> anyhow::Result<SmtpTransport> {
-    let builder = if config.smtp_ttls {
+    let builder = if config.smtp_starttls {
         SmtpTransport::starttls_relay(&config.smtp_server)
             .context("failed to create STARTTLS transport")?
     } else {
@@ -155,15 +156,19 @@ fn build_transport(config: &Config) -> anyhow::Result<SmtpTransport> {
 fn send_email(config: &Config, comic: &Comic, attachment_path: Option<&Path>) -> anyhow::Result<()> {
     let date_str = format_date(comic)?;
     let subject = format!("New xkcd {}: {} from {}", comic.num, comic.safe_title, date_str);
-    let plain_text = format!("{}: {}", comic.safe_title, comic.img);
+    let comic_url = format!("https://xkcd.com/{}/", comic.num);
+    let plain_text = format!("{}\n{}\n\n{}", comic.safe_title, comic_url, comic.alt);
     let html_body = format!(
         r#"<html><body>
-<h1><a href="{img}"><img title="{title}" alt="{title}" style="display:block" src="{img}" /></a></h1>
-<br><br>
+<h1><a href="{url}"><img title="{alt}" alt="{title}" style="display:block" src="{img}" /></a></h1>
+<p>{alt}</p>
+<br>
 Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comics</a>
 </body></html>"#,
+        url = comic_url,
         img = comic.img,
         title = comic.safe_title,
+        alt = comic.alt,
     );
 
     let alternative = MultiPart::alternative()
