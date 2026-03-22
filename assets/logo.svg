@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- White outline via morphology dilation applied to the whole bubble group -->
+    <filter id="bubble-outline" x="-4%" y="-4%" width="108%" height="108%">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="11" result="expanded"/>
+      <feFlood flood-color="white" result="color"/>
+      <feComposite in="color" in2="expanded" operator="in" result="outline"/>
+      <feMerge>
+        <feMergeNode in="outline"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Subtle inner shadow on the bubble -->
+    <filter id="inner-shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feOffset dx="0" dy="4"/>
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background: near-black charcoal, rounded for avatar contexts -->
+  <rect width="512" height="512" rx="80" fill="#18181B"/>
+
+  <!-- Speech bubble (body + tail rendered as group, outlined together via filter) -->
+  <g filter="url(#bubble-outline)">
+    <!-- Bubble body -->
+    <rect x="76" y="54" width="360" height="272" rx="44" fill="#D4551F"/>
+    <!-- Tail: top points intentionally inside the rect bottom so the fill merges -->
+    <polygon points="130,318  106,446  208,318" fill="#D4551F"/>
+  </g>
+
+  <!-- Fe: iron chemical symbol, centered in bubble body -->
+  <!-- Bubble body center: x=256, y=54+136=190 -->
+  <text
+    x="256" y="190"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="192" font-weight="bold"
+    text-anchor="middle" dominant-baseline="central"
+    fill="white">Fe</text>
+</svg>
