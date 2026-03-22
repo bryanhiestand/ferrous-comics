@@ -287,3 +287,100 @@ To fix: swap the values so `alt="{alt}"` and `title="{title}"` (where `{alt}` ma
 <usage><total_tokens>17400</total_tokens><tool_uses>2</tool_uses><duration_ms>29793</duration_ms></usage>
 </task-notification>
 Full transcript available at: /private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/a075a6e43fe24155a.output
+
+---
+
+<task-notification>
+<task-id>afe516de05f43c69e</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/afe516de05f43c69e.output</output-file>
+<status>completed</status>
+<summary>Agent "Adversarial review of backfill implementation" completed</summary>
+<result>Here is my review. I read the full source file rather than relying solely on the submitted snippets.
+
+---
+
+## Bugs and Correctness Issues
+
+### 1. `backfill_limit = 0` still sends `latest.num` — this is a behavior change, not a no-op
+
+**Location:** `main()`, lines 485-489
+
+```rust
+let candidates: Vec<u32> = if config.backfill_limit > 0 {
+    (start..=latest.num).take(config.backfill_limit).collect()
+} else {
+    vec![latest.num]   // ← always runs when limit is 0
+};
+```
+
+The documentation says `0 = disabled`. But the `else` branch always pushes `latest.num` into candidates regardless of whether it has already been seen. The `is_seen` check at the top of the loop catches it and skips it, so no duplicate email is sent — but the semantics are still wrong: a user who sets `backfill_limit=0` expecting "no backfill, just normal behavior" actually gets exactly normal behavior, so functionally it works. The issue is the opposite case: a user who sets `backfill_limit=0` expecting to **disable all comic sending** (a reasonable reading of "disabled") will still get the latest comic emailed. The variable name and its documented meaning are ambiguous. This is at minimum a documentation/naming bug, and could be a real behavior bug depending on operator intent.
+
+### 2. `last` overflow: `last.map(|m| m + 1)` can panic on `u32::MAX`
+
+**Location:** `main()`, line 484
+
+```rust
+let start = last.map(|m| m + 1).unwrap_or(latest.num);
+```
+
+If the highest recorded comic number is `u32::MAX` (4,294,967,295), this overflows and panics in debug builds, or wraps to 0 in release builds (producing `0..=latest.num`, a huge candidate list). xkcd is at comic ~3100 today, so this will not occur in practice for decades, but Rust's default integer arithmetic does not make it safe by construction. Using `m.saturating_add(1)` would be cleaner and panic-safe.
+
+### 3. `fetch_comic_by_num` skips on any error, including transient network failures — this silently drops comics permanently
+
+**Location:** `main()`, lines 500-506
+
+```rust
+Err(e) => {
+    log::warn!("skipping comic #{num}: {e:#}");
+    continue;
+}
+```
+
+When a comic is skipped due to a network timeout or a 5xx error, the loop continues to the next comic. On the next cron run, `last_seen_num` will return the last *successfully written* comic, so skipped comics will be retried (the database was not updated for them). This is correct behavior.
+
+However, comic #404 is the documented special case: the xkcd API returns HTTP 404 for it. The `fetch_comic_by_num` function maps any HTTP error status to a generic error message (`"xkcd API returned HTTP 404"`). This means #404 is logged as a warning and skipped every single run where the backfill range includes it — because it is never recorded as seen, it will never advance past 404. **This is a real bug**: the tool will be permanently stuck re-warning about #404 on every run that encounters it, and `last_seen_num` will never return a value >= 404 until it is manually resolved.
+
+To fix: after a 404 response in `fetch_comic_by_num`, the caller should mark the comic as seen (possibly with a special flag) to advance past it, rather than treating it identically to a transient transport error.
+
+### 4. The `is_seen` check is redundant but its absence would be a correctness problem
+
+**Location:** `main()`, line 509
+
+This is defensive code and correct. However: if `record_first_seen` is called and then the process crashes before `record_email_success`, the next run will call `is_seen` → true → skip. That means no email is ever sent for that comic, and `email_sent` in the DB stays `false`. This is the stated design tradeoff ("prevents duplicate emails if a later step fails") — acceptable, but worth confirming it is intentional. It is documented, so this is not a bug, just a callout.
+
+### 5. `download_image` failure aborts the entire run for remaining candidates
+
+**Location:** `main()`, lines 517-523
+
+```rust
+let image_path = if config.download {
+    let path = download_image(&agent, &comic)?;  // ← propagates with ?
+    ...
+};
+```
+
+The `?` operator propagates the error out of the `for` loop entirely. If downloading comic #2 of a 5-comic backfill batch fails, comics #3–#5 are never processed. This is inconsistent with the `fetch_comic_by_num` error handling above, which logs-and-continues. A download failure (transient HTTP error, disk full) should arguably also be a `log::warn` + `continue` to allow remaining comics to be processed. As written, a single download failure stops all further processing for that cron invocation.
+
+The same applies to `send_email(...)` — a send failure for comic N aborts processing of N+1 through the end of the batch.
+
+### 6. Comic number mismatch between requested `num` and returned `comic.num` is unchecked
+
+**Location:** `fetch_comic_by_num`, after the JSON parse
+
+The xkcd API is trusted to return the correct comic for the requested URL. If the API ever returns a different `num` in its JSON body than was requested (malformed response, redirect to a different comic), the code will record the wrong comic number as seen and email a different comic than expected. A single assertion — `anyhow::ensure!(comic.num == num, ...)` — after the parse would catch this.
+
+---
+
+## Summary of real issues, ranked by severity
+
+| # | Issue | Severity |
+|---|-------|----------|
+| 3 | Comic #404 is never marked seen → tool warns forever and backfill stalls | High |
+| 5 | Download or email failure aborts remaining candidates in the batch | Medium |
+| 1 | `backfill_limit = 0` meaning is ambiguous / may not match user expectation | Low-Medium |
+| 6 | API response `num` field not validated against requested num | Low |
+| 2 | `u32::MAX` overflow in `start` computation | Negligible (theoretical) |</result>
+<usage><total_tokens>18779</total_tokens><tool_uses>1</tool_uses><duration_ms>46118</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/afe516de05f43c69e.output
