@@ -997,6 +997,60 @@ mod tests {
     }
 
     #[test]
+    fn email_html_has_meta_charset() {
+        let config = make_config();
+        let comic = make_comic(1);
+        let raw = email_bytes(&config, &comic, None);
+        // "<meta charset" appears before the = so is not QP-encoded
+        assert!(raw.contains("<meta charset"), "meta charset missing");
+    }
+
+    #[test]
+    fn email_html_title_is_text_link() {
+        let config = make_config();
+        let comic = make_comic(1);
+        let raw = email_bytes(&config, &comic, None);
+        // h1 contains the title as link text, not wrapped in an img tag
+        assert!(
+            raw.contains("Test Comic</a></h1>"),
+            "title not rendered as h1 link text"
+        );
+    }
+
+    #[test]
+    fn email_html_alt_title_attributes() {
+        let config = make_config();
+        let mut comic = make_comic(1);
+        comic.safe_title = "SafeTitle".to_string();
+        comic.alt = "AltText".to_string();
+        let raw = email_bytes(&config, &comic, None);
+        // QP encodes `=` as `=3D`; check both forms to be safe
+        let has_correct_alt = raw.contains("alt=3D\"AltText\"") || raw.contains("alt=\"AltText\"");
+        let has_correct_title =
+            raw.contains("title=3D\"SafeTitle\"") || raw.contains("title=\"SafeTitle\"");
+        assert!(
+            has_correct_alt,
+            "img alt attribute does not contain alt text"
+        );
+        assert!(
+            has_correct_title,
+            "img title attribute does not contain safe_title"
+        );
+    }
+
+    #[test]
+    fn email_html_meta_line() {
+        let config = make_config();
+        let comic = make_comic(42);
+        let raw = email_bytes(&config, &comic, None);
+        assert!(raw.contains("#42"), "comic number missing from meta line");
+        assert!(
+            raw.contains("&middot;"),
+            "middot separator missing from meta line"
+        );
+    }
+
+    #[test]
     fn email_multiple_recipients() {
         let mut config = make_config();
         config.mail_to = vec!["a@example.com".to_string(), "b@example.com".to_string()];
