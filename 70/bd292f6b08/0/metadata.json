@@ -1,0 +1,23 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "70bd292f6b08",
+  "session_id": "722db7c9-9d3f-42ea-ae53-305196c88c01",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-22T06:25:34.955649Z",
+  "branch": "fix/bump-version-yaml-2",
+  "checkpoints_count": 1,
+  "files_touched": [],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "251b895a78bc",
+  "token_usage": {
+    "input_tokens": 215,
+    "cache_creation_tokens": 149405,
+    "cache_read_tokens": 16990345,
+    "output_tokens": 89508,
+    "api_call_count": 171
+  },
+  "session_metrics": {
+    "turn_count": 19
+  }
+}
