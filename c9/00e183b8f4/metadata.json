@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "c900e183b8f4",
+  "strategy": "manual-commit",
+  "branch": "history-to-redb",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "Cargo.toml",
+    "README.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/c9/00e183b8f4/0/metadata.json",
+      "transcript": "/c9/00e183b8f4/0/full.jsonl",
+      "content_hash": "/c9/00e183b8f4/0/content_hash.txt",
+      "prompt": "/c9/00e183b8f4/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 128,
+    "cache_creation_tokens": 156718,
+    "cache_read_tokens": 6757158,
+    "output_tokens": 45065,
+    "api_call_count": 99
+  }
+}
