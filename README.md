@@ -28,7 +28,7 @@ All settings are read from environment variables (or a `.env` file) with the `XK
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `XKCD_MAIL_TO` | yes | — | Recipient email address |
+| `XKCD_MAIL_TO` | yes | — | Recipient email address (comma-separated for multiple) |
 | `XKCD_MAIL_FROM` | yes | — | Sender email address |
 | `XKCD_SMTP_SERVER` | yes | — | SMTP hostname |
 | `XKCD_SMTP_PORT` | no | `587` | SMTP port |
@@ -38,6 +38,7 @@ All settings are read from environment variables (or a `.env` file) with the `XK
 | `XKCD_DOWNLOAD` | no | `true` | Download comic image locally |
 | `XKCD_MAIL_ATTACHMENT` | no | `false` | Attach image to email (requires `XKCD_DOWNLOAD=true`) |
 | `XKCD_DB_PATH` | no | `xkcd_comics.db` | Path to the comic history database |
+| `XKCD_BACKFILL_LIMIT` | no | `5` | Max comics to send per run when catching up after a missed day; `0` to disable backfill |
 
 Set `RUST_LOG=debug` for verbose output.
 
@@ -95,13 +96,9 @@ ferrous-comics dump | jq '.first_seen_utc' | xargs -I{} date -r {}
 
 ## Limitations
 
-* Emails only the latest comic — will not backfill missed comics since last run
-* Only accepts one recipient
 * Must have file write access in the binary's working directory
 * Only supports SMTP
 
 ## TODO
 
-* Support comic backfill (one email per comic since last run)
-* Make email body HTML prettier
 * Test other email providers
