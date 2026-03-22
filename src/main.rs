@@ -12,6 +12,7 @@ use redb::{Database, ReadableTable, TableDefinition};
 use serde::{Deserialize, Serialize};
 
 const XKCD_API_URL: &str = "https://xkcd.com/info.0.json";
+const USER_AGENT: &str = "ferrous-comics/0.1";
 const LEGACY_HISTORY_FILE: &str = "xkcd_history.txt";
 const COMIC_DIR: &str = "comics";
 const COMICS_TABLE: TableDefinition<u32, &str> = TableDefinition::new("comics");
@@ -246,7 +247,7 @@ fn update_record(db: &Database, num: u32, f: impl FnOnce(&mut ComicRecord)) -> a
 fn fetch_comic(agent: &ureq::Agent) -> anyhow::Result<Comic> {
     let comic = agent
         .get(XKCD_API_URL)
-        .set("User-Agent", "ferrous-comics/0.1")
+        .set("User-Agent", USER_AGENT)
         .call()
         .map_err(|e| match e {
             ureq::Error::Status(code, _) => anyhow::anyhow!("xkcd API returned HTTP {code}"),
@@ -272,7 +273,7 @@ fn download_image(agent: &ureq::Agent, comic: &Comic) -> anyhow::Result<PathBuf>
     let mut bytes = Vec::new();
     agent
         .get(&comic.img)
-        .set("User-Agent", "ferrous-comics/0.1")
+        .set("User-Agent", USER_AGENT)
         .call()
         .map_err(|e| match e {
             ureq::Error::Status(code, _) => anyhow::anyhow!("image URL returned HTTP {code}"),
