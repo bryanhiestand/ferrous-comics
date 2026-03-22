@@ -358,16 +358,34 @@ fn build_email(
     let comic_url = format!("https://xkcd.com/{}/", comic.num);
     let plain_text = format!("{}\n{}\n\n{}", comic.safe_title, comic_url, comic.alt);
     let html_body = format!(
-        r#"<html><body>
-<h1><a href="{url}"><img title="{alt}" alt="{title}" style="display:block" src="{img}" /></a></h1>
-<p>{alt}</p>
-<br>
-Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comics</a>
-</body></html>"#,
+        r#"<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body{{font-family:sans-serif;max-width:640px;margin:0 auto;padding:16px;background:#fff;color:#222}}
+  h1{{font-size:1.1em;margin:0 0 4px 0}}
+  .meta{{color:#666;font-size:0.85em;margin-bottom:14px}}
+  .comic img{{max-width:100%;height:auto;display:block}}
+  .alt{{background:#f5f5f5;border-left:3px solid #999;padding:8px 12px;margin:12px 0;font-style:italic;font-size:0.95em}}
+  .footer{{font-size:0.8em;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}}
+  a{{color:#1a0dab}}
+</style>
+</head>
+<body>
+<h1><a href="{url}">{title}</a></h1>
+<div class="meta">#{num} &middot; {date}</div>
+<div class="comic"><a href="{url}"><img src="{img}" alt="{title}" title="{alt}" style="max-width:100%;display:block"></a></div>
+<div class="alt">{alt}</div>
+<div class="footer">Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comics</a></div>
+</body>
+</html>"#,
         url = escape_html(&comic_url),
         img = escape_html(&comic.img),
         title = escape_html(&comic.safe_title),
         alt = escape_html(&comic.alt),
+        num = comic.num,
+        date = escape_html(&date_str),
     );
 
     let alternative = MultiPart::alternative()
