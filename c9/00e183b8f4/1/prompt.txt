@@ -1,0 +1,3 @@
+Instead of writing to xkcd_history.txt, write to a local database like sqlite. Prefer rust native everything (no C compiles). Use the best options blending reliability and ease of maintenance.
+
+Consider additional features that should be implemented, such as tracking whether a comic was successfully emailed in addition to whether it is just new or just downloaded
