@@ -273,12 +273,12 @@ fn fetch_comic(agent: &ureq::Agent, base_url: &str) -> anyhow::Result<Comic> {
 
 /// Fetches a specific comic by number. Returns `Ok(None)` when xkcd returns 404
 /// (the comic intentionally doesn't exist, e.g. #404), and `Err` for transient failures.
-fn fetch_comic_by_num(agent: &ureq::Agent, base_url: &str, num: u32) -> anyhow::Result<Option<Comic>> {
-    let url = format!(
-        "{}/{}/info.0.json",
-        base_url.trim_end_matches('/'),
-        num
-    );
+fn fetch_comic_by_num(
+    agent: &ureq::Agent,
+    base_url: &str,
+    num: u32,
+) -> anyhow::Result<Option<Comic>> {
+    let url = format!("{}/{}/info.0.json", base_url.trim_end_matches('/'), num);
     let resp = match agent.get(&url).set("User-Agent", USER_AGENT).call() {
         Ok(r) => r,
         Err(ureq::Error::Status(404, _)) => return Ok(None),
@@ -650,6 +650,7 @@ mod tests {
             smtp_starttls: true,
             smtp_username: None,
             smtp_password: None,
+            backfill_limit: 0,
         }
     }
 
@@ -1164,5 +1165,154 @@ mod tests {
         let raw = email_bytes(&config, &comic, None);
         assert!(raw.contains("a@example.com"), "first recipient missing");
         assert!(raw.contains("b@example.com"), "second recipient missing");
+    }
+
+    // ── last_seen_num ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn last_seen_num_empty() {
+        let (_dir, db) = make_db();
+        assert_eq!(last_seen_num(&db).unwrap(), None);
+    }
+
+    #[test]
+    fn last_seen_num_multiple() {
+        let (_dir, db) = make_db();
+        // Insert out of order to confirm max, not insertion-last
+        record_first_seen(&db, &make_comic(3)).unwrap();
+        record_first_seen(&db, &make_comic(1)).unwrap();
+        record_first_seen(&db, &make_comic(2)).unwrap();
+        assert_eq!(last_seen_num(&db).unwrap(), Some(3));
+    }
+
+    // ── fetch_comic_by_num ────────────────────────────────────────────────────
+
+    #[test]
+    fn fetch_comic_by_num_success() {
+        let mut server = mockito::Server::new();
+        let body = r#"{"num":42,"safe_title":"Answer","img":"https://imgs.xkcd.com/comics/answer.png","alt":"Alt","year":"2025","month":"1","day":"1","title":"Answer"}"#;
+        let _m = server
+            .mock("GET", "/42/info.0.json")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+
+        let agent = ureq::AgentBuilder::new().build();
+        let comic = fetch_comic_by_num(&agent, &server.url(), 42)
+            .unwrap()
+            .unwrap();
+        assert_eq!(comic.num, 42);
+    }
+
+    #[test]
+    fn fetch_comic_by_num_404() {
+        let mut server = mockito::Server::new();
+        let _m = server
+            .mock("GET", "/404/info.0.json")
+            .with_status(404)
+            .create();
+
+        let agent = ureq::AgentBuilder::new().build();
+        let result = fetch_comic_by_num(&agent, &server.url(), 404).unwrap();
+        assert!(result.is_none(), "404 should return Ok(None)");
+    }
+
+    #[test]
+    fn fetch_comic_by_num_500() {
+        let mut server = mockito::Server::new();
+        let _m = server
+            .mock("GET", "/99/info.0.json")
+            .with_status(500)
+            .create();
+
+        let agent = ureq::AgentBuilder::new().build();
+        let result = fetch_comic_by_num(&agent, &server.url(), 99);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("500"));
+    }
+
+    #[test]
+    fn fetch_comic_by_num_wrong_num() {
+        let mut server = mockito::Server::new();
+        // Server returns comic #1 but we requested #99
+        let body = r#"{"num":1,"safe_title":"Barrel","img":"https://imgs.xkcd.com/comics/barrel.jpg","alt":"Alt","year":"2006","month":"1","day":"1","title":"Barrel"}"#;
+        let _m = server
+            .mock("GET", "/99/info.0.json")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+
+        let agent = ureq::AgentBuilder::new().build();
+        let result = fetch_comic_by_num(&agent, &server.url(), 99);
+        assert!(result.is_err(), "mismatched num should be an error");
+    }
+
+    // ── backfill candidate logic ──────────────────────────────────────────────
+
+    /// Helper: compute backfill candidates using the same logic as main()
+    fn backfill_candidates(last: Option<u32>, latest: u32, limit: usize) -> Vec<u32> {
+        let start = last.map(|m| m.saturating_add(1)).unwrap_or(latest);
+        if limit > 0 {
+            (start..=latest).take(limit).collect()
+        } else {
+            vec![latest]
+        }
+    }
+
+    #[test]
+    fn backfill_candidates_empty_db() {
+        // No prior history — only process the latest comic
+        assert_eq!(backfill_candidates(None, 100, 5), vec![100]);
+    }
+
+    #[test]
+    fn backfill_candidates_up_to_date() {
+        // Already seen the latest — empty list
+        assert_eq!(backfill_candidates(Some(100), 100, 5), Vec::<u32>::new());
+    }
+
+    #[test]
+    fn backfill_candidates_with_gap() {
+        assert_eq!(backfill_candidates(Some(98), 101, 5), vec![99, 100, 101]);
+    }
+
+    #[test]
+    fn backfill_candidates_capped() {
+        // Gap of 11 but limit=3 → only first 3
+        assert_eq!(backfill_candidates(Some(90), 101, 3), vec![91, 92, 93]);
+    }
+
+    #[test]
+    fn backfill_candidates_limit_zero() {
+        // limit=0 disables backfill — only latest
+        assert_eq!(backfill_candidates(Some(98), 101, 0), vec![101]);
+    }
+
+    // ── backfill 404 marked seen ──────────────────────────────────────────────
+
+    #[test]
+    fn backfill_404_marked_seen() {
+        // When fetch_comic_by_num returns Ok(None), the num should be recorded as seen
+        // so the next run advances past it. We test this via the DB directly.
+        let (_dir, db) = make_db();
+        let placeholder = Comic {
+            num: 404,
+            safe_title: String::new(),
+            img: String::new(),
+            alt: String::new(),
+            year: String::new(),
+            month: String::new(),
+            day: String::new(),
+        };
+        record_first_seen(&db, &placeholder).unwrap();
+        assert!(is_seen(&db, &placeholder).unwrap());
+        // email_sent should be false — a 404 placeholder was never emailed
+        let rtx = db.begin_read().unwrap();
+        let table = rtx.open_table(COMICS_TABLE).unwrap();
+        let json = table.get(404u32).unwrap().unwrap().value().to_owned();
+        let rec: ComicRecord = serde_json::from_str(&json).unwrap();
+        assert!(!rec.email_sent);
     }
 }
