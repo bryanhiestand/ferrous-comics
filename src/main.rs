@@ -388,12 +388,34 @@ Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comi
     Ok(())
 }
 
+/// Prints all comic records in the database as newline-delimited JSON, sorted by comic number.
+fn cmd_dump(db: &Database) -> anyhow::Result<()> {
+    let rtx = db
+        .begin_read()
+        .context("failed to begin read transaction")?;
+    match rtx.open_table(COMICS_TABLE) {
+        Ok(table) => {
+            for entry in table.iter().context("failed to iterate comics table")? {
+                let (_, value) = entry.context("failed to read comics table entry")?;
+                println!("{}", value.value());
+            }
+            Ok(())
+        }
+        Err(redb::TableError::TableDoesNotExist(_)) => Ok(()), // empty database
+        Err(e) => Err(e).context("failed to open comics table"),
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let config = load_config()?;
 
     let db = open_db(&config.db_path)?;
+
+    if std::env::args().nth(1).as_deref() == Some("dump") {
+        return cmd_dump(&db);
+    }
 
     let client = reqwest::blocking::Client::builder()
         .user_agent("ferrous-comics/0.1")
