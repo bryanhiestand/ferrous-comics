@@ -45,10 +45,7 @@ jobs:
           git add Cargo.toml Cargo.lock
           git commit -m "Bump version to $VERSION"
           git push origin "release/v$VERSION"
-          BODY="Automated version bump to $VERSION.
-
-After merging, create the release and trigger the build:
-  gh release create v$VERSION"
+          BODY=$(printf 'Automated version bump to %s.\n\nAfter merging, create the release and trigger the build:\n  gh release create v%s' "$VERSION" "$VERSION")
           gh pr create \
             --title "Release v$VERSION" \
             --body "$BODY" \
