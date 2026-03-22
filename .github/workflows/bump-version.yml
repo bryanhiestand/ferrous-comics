@@ -45,12 +45,11 @@ jobs:
           git add Cargo.toml Cargo.lock
           git commit -m "Bump version to $VERSION"
           git push origin "release/v$VERSION"
-          gh pr create \
-            --title "Release v$VERSION" \
-            --body "Automated version bump to \`$VERSION\`.
+          BODY="Automated version bump to $VERSION.
 
 After merging, create the release and trigger the build:
-\`\`\`
-gh release create v$VERSION
-\`\`\`" \
+  gh release create v$VERSION"
+          gh pr create \
+            --title "Release v$VERSION" \
+            --body "$BODY" \
             --base main
