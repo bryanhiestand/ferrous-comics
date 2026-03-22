@@ -99,11 +99,7 @@ fn is_seen(comic: &Comic) -> anyhow::Result<bool> {
 }
 
 fn local_filename(comic: &Comic) -> String {
-    let basename = comic
-        .img
-        .rsplit('/')
-        .next()
-        .unwrap_or(comic.img.as_str());
+    let basename = comic.img.rsplit('/').next().unwrap_or(comic.img.as_str());
     format!("{}-{}", comic.num, basename)
 }
 
