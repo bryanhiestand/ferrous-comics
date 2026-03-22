@@ -1,0 +1,5 @@
+social-preview should be We only support PNG, GIF, or JPG pictures. Convert it to PNG. rsvg-convert is not installed on my mac
+
+also, do not track the preview in git.
+
+is the logo in the right place to be used by github, or do we need to add it to the readme?
