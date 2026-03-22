@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -242,14 +243,13 @@ fn update_record(db: &Database, num: u32, f: impl FnOnce(&mut ComicRecord)) -> a
     Ok(())
 }
 
-fn fetch_comic(client: &reqwest::blocking::Client) -> anyhow::Result<Comic> {
-    let comic = client
+fn fetch_comic(agent: &ureq::Agent) -> anyhow::Result<Comic> {
+    let comic = agent
         .get(XKCD_API_URL)
-        .send()
+        .set("User-Agent", "ferrous-comics/0.1")
+        .call()
         .context("failed to reach xkcd API")?
-        .error_for_status()
-        .context("xkcd API returned error status")?
-        .json::<Comic>()
+        .into_json::<Comic>()
         .context("failed to parse xkcd JSON")?;
     log::debug!("fetched comic #{}: {}", comic.num, comic.safe_title);
     Ok(comic)
@@ -260,19 +260,20 @@ fn local_filename(comic: &Comic) -> String {
     format!("{}-{}", comic.num, basename)
 }
 
-fn download_image(client: &reqwest::blocking::Client, comic: &Comic) -> anyhow::Result<PathBuf> {
+fn download_image(agent: &ureq::Agent, comic: &Comic) -> anyhow::Result<PathBuf> {
     std::fs::create_dir_all(COMIC_DIR).context("failed to create comics directory")?;
 
     let filename = local_filename(comic);
     let dest = Path::new(COMIC_DIR).join(&filename);
 
-    let bytes = client
+    let mut bytes = Vec::new();
+    agent
         .get(&comic.img)
-        .send()
+        .set("User-Agent", "ferrous-comics/0.1")
+        .call()
         .context("failed to fetch comic image")?
-        .error_for_status()
-        .context("image URL returned error status")?
-        .bytes()
+        .into_reader()
+        .read_to_end(&mut bytes)
         .context("failed to read image bytes")?;
 
     std::fs::write(&dest, &bytes).with_context(|| format!("failed to write {}", dest.display()))?;
@@ -425,14 +426,12 @@ fn main() -> anyhow::Result<()> {
         return cmd_dump(&db);
     }
 
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("ferrous-comics/0.1")
-        .connect_timeout(Duration::from_secs(30))
+    let agent = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(30))
         .timeout(Duration::from_secs(60))
-        .build()
-        .context("failed to build HTTP client")?;
+        .build();
 
-    let comic = fetch_comic(&client)?;
+    let comic = fetch_comic(&agent)?;
 
     migrate_history_file(&db)?;
 
@@ -445,7 +444,7 @@ fn main() -> anyhow::Result<()> {
     record_first_seen(&db, &comic)?;
 
     let image_path = if config.download {
-        let path = download_image(&client, &comic)?;
+        let path = download_image(&agent, &comic)?;
         record_download_success(&db, comic.num)?;
         Some(path)
     } else {
