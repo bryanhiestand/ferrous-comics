@@ -50,12 +50,9 @@ struct Config {
     smtp_starttls: bool,
     smtp_username: Option<String>,
     smtp_password: Option<String>,
-    db_path: PathBuf,
 }
 
 fn load_config() -> anyhow::Result<Config> {
-    let _ = dotenvy::dotenv();
-
     fn env(key: &str) -> anyhow::Result<String> {
         std::env::var(key).with_context(|| format!("missing env var {key}"))
     }
@@ -80,9 +77,6 @@ fn load_config() -> anyhow::Result<Config> {
         smtp_starttls: env_bool("XKCD_SMTP_STARTTLS", true),
         smtp_username: std::env::var("XKCD_SMTP_USERNAME").ok(),
         smtp_password: std::env::var("XKCD_SMTP_PASSWORD").ok(),
-        db_path: std::env::var("XKCD_DB_PATH")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("xkcd_comics.db")),
     };
 
     if config.mail_attachment && !config.download {
@@ -425,15 +419,21 @@ fn cmd_dump(db: &Database) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
+    let _ = dotenvy::dotenv();
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    let config = load_config()?;
+    let db_path = std::env::var("XKCD_DB_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("xkcd_comics.db"));
+    let db = open_db(&db_path)?;
 
-    let db = open_db(&config.db_path)?;
+    migrate_history_file(&db)?;
 
     if std::env::args().nth(1).as_deref() == Some("dump") {
         return cmd_dump(&db);
     }
+
+    let config = load_config()?;
 
     let agent = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(30))
@@ -441,8 +441,6 @@ fn main() -> anyhow::Result<()> {
         .build();
 
     let comic = fetch_comic(&agent)?;
-
-    migrate_history_file(&db)?;
 
     if is_seen(&db, &comic)? {
         log::info!("comic #{} already seen, exiting", comic.num);
