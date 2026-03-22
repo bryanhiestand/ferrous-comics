@@ -2,6 +2,8 @@
 
 <img src="assets/social-preview.svg" alt="ferrous-comics — xkcd, delivered to your inbox"/>
 
+[![CI](https://github.com/bryanhiestand/ferrous-comics/actions/workflows/ci.yml/badge.svg)](https://github.com/bryanhiestand/ferrous-comics/actions/workflows/ci.yml)
+
 Emails the latest xkcd comic to the recipient specified in settings.
 
 Checks xkcd's latest comic using the xkcd API at <https://xkcd.com/info.0.json>
