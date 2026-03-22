@@ -39,6 +39,58 @@ All settings are read from environment variables (or a `.env` file) with the `XK
 
 Set `RUST_LOG=debug` for verbose output.
 
+## Database
+
+Comic history is stored in `xkcd_comics.db` (a [redb](https://github.com/cberner/redb) embedded database). Each record is a JSON object:
+
+```json
+{"num":3222,"first_seen_utc":1742563200,"image_downloaded":true,"email_sent":true,"email_sent_utc":1742563205}
+```
+
+Fields:
+
+| Field | Description |
+|---|---|
+| `num` | xkcd comic number |
+| `first_seen_utc` | Unix timestamp when the comic was first noticed (`0` = imported from legacy file) |
+| `image_downloaded` | Whether the image was successfully saved to `comics/` |
+| `email_sent` | Whether the email was successfully sent |
+| `email_sent_utc` | Unix timestamp of the successful send, or `null` |
+
+### Inspect the database
+
+Dump all records as newline-delimited JSON:
+
+```bash
+ferrous-comics dump
+# or during development:
+make dump
+```
+
+Pretty-print a single record by comic number (requires `jq`):
+
+```bash
+ferrous-comics dump | jq 'select(.num == 3222)'
+```
+
+List comics where the email was not sent:
+
+```bash
+ferrous-comics dump | jq 'select(.email_sent == false)'
+```
+
+Count total comics seen:
+
+```bash
+ferrous-comics dump | wc -l
+```
+
+Convert `first_seen_utc` to a readable date (requires `jq` and `date`):
+
+```bash
+ferrous-comics dump | jq '.first_seen_utc' | xargs -I{} date -r {}
+```
+
 ## Limitations
 
 * Emails only the latest comic — will not backfill missed comics since last run
