@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "ccddd4644833",
+  "strategy": "manual-commit",
+  "branch": "fix-dump-config",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/main.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/cc/ddd4644833/0/metadata.json",
+      "transcript": "/cc/ddd4644833/0/full.jsonl",
+      "content_hash": "/cc/ddd4644833/0/content_hash.txt",
+      "prompt": "/cc/ddd4644833/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 295,
+    "cache_creation_tokens": 382337,
+    "cache_read_tokens": 21858799,
+    "output_tokens": 112374,
+    "api_call_count": 234
+  }
+}
