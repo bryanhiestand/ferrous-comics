@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9  # stable
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+
+      - name: Install zig
+        run: pip3 install ziglang==0.15.2
+
+      - name: Install cargo-zigbuild
+        run: cargo install --locked cargo-zigbuild --version 0.22.1
+
+      - name: Build linux-amd64
+        run: cargo zigbuild --release --target x86_64-unknown-linux-gnu
+
+      - name: Build linux-arm64
+        run: cargo zigbuild --release --target aarch64-unknown-linux-gnu
+
+      - name: Build darwin-arm64
+        run: cargo zigbuild --release --target aarch64-apple-darwin
+
+      - name: Collect binaries
+        run: |
+          cp target/x86_64-unknown-linux-gnu/release/ferrous-comics ferrous-comics-linux-amd64
+          cp target/aarch64-unknown-linux-gnu/release/ferrous-comics ferrous-comics-linux-arm64
+          cp target/aarch64-apple-darwin/release/ferrous-comics ferrous-comics-darwin-arm64
+
+      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe  # v2.6.1
+        with:
+          files: |
+            ferrous-comics-linux-amd64
+            ferrous-comics-linux-arm64
+            ferrous-comics-darwin-arm64
