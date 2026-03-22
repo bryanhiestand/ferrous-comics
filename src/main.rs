@@ -248,7 +248,10 @@ fn fetch_comic(agent: &ureq::Agent) -> anyhow::Result<Comic> {
         .get(XKCD_API_URL)
         .set("User-Agent", "ferrous-comics/0.1")
         .call()
-        .context("failed to reach xkcd API")?
+        .map_err(|e| match e {
+            ureq::Error::Status(code, _) => anyhow::anyhow!("xkcd API returned HTTP {code}"),
+            ureq::Error::Transport(t) => anyhow::anyhow!("failed to reach xkcd API: {t}"),
+        })?
         .into_json::<Comic>()
         .context("failed to parse xkcd JSON")?;
     log::debug!("fetched comic #{}: {}", comic.num, comic.safe_title);
@@ -271,7 +274,10 @@ fn download_image(agent: &ureq::Agent, comic: &Comic) -> anyhow::Result<PathBuf>
         .get(&comic.img)
         .set("User-Agent", "ferrous-comics/0.1")
         .call()
-        .context("failed to fetch comic image")?
+        .map_err(|e| match e {
+            ureq::Error::Status(code, _) => anyhow::anyhow!("image URL returned HTTP {code}"),
+            ureq::Error::Transport(t) => anyhow::anyhow!("failed to fetch comic image: {t}"),
+        })?
         .into_reader()
         .read_to_end(&mut bytes)
         .context("failed to read image bytes")?;
