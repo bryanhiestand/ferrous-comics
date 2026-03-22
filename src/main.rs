@@ -69,7 +69,7 @@ fn load_config() -> anyhow::Result<Config> {
     if config.mail_attachment && !config.download {
         bail!("XKCD_DOWNLOAD must be true when XKCD_MAIL_ATTACHMENT is true");
     }
-    if config.smtp_username.is_some() ^ config.smtp_password.is_some() {
+    if config.smtp_username.is_some() != config.smtp_password.is_some() {
         bail!("XKCD_SMTP_USERNAME and XKCD_SMTP_PASSWORD must both be set or both be unset");
     }
 
