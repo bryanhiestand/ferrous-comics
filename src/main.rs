@@ -375,7 +375,7 @@ fn build_email(
 <body>
 <h1><a href="{url}">{title}</a></h1>
 <div class="meta">#{num} &middot; {date}</div>
-<div class="comic"><a href="{url}"><img src="{img}" alt="{title}" title="{alt}" style="max-width:100%;display:block"></a></div>
+<div class="comic"><a href="{url}"><img src="{img}" alt="{alt}" title="{title}" style="max-width:100%;display:block"></a></div>
 <div class="alt">{alt}</div>
 <div class="footer">Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comics</a></div>
 </body>
