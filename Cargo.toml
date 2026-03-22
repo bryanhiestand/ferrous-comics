@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 anyhow     = "1.0"
-chrono     = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono     = { version = "0.4", default-features = false, features = ["std"] }
 dotenvy    = "0.15"
-env_logger = "0.11"
+env_logger = { version = "0.11", default-features = false, features = ["auto-color", "regex"] }
 lettre     = { version = "0.11", default-features = false, features = ["smtp-transport", "rustls-tls", "builder", "hostname"] }
 log        = "0.4"
 reqwest    = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }

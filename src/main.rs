@@ -175,7 +175,10 @@ fn is_seen(db: &Database, comic: &Comic) -> anyhow::Result<bool> {
 fn record_first_seen(db: &Database, comic: &Comic) -> anyhow::Result<()> {
     let record = ComicRecord {
         num: comic.num,
-        first_seen_utc: chrono::Utc::now().timestamp(),
+        first_seen_utc: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64,
         image_downloaded: false,
         email_sent: false,
         email_sent_utc: None,
@@ -203,7 +206,12 @@ fn record_download_success(db: &Database, num: u32) -> anyhow::Result<()> {
 fn record_email_success(db: &Database, num: u32) -> anyhow::Result<()> {
     update_record(db, num, |r| {
         r.email_sent = true;
-        r.email_sent_utc = Some(chrono::Utc::now().timestamp());
+        r.email_sent_utc = Some(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64,
+        );
     })
 }
 
