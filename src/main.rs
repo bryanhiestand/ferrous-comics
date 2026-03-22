@@ -398,7 +398,9 @@ Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comi
             .context("invalid XKCD_MAIL_FROM address")?,
     );
     for addr in &config.mail_to {
-        builder = builder.to(addr.parse().context("invalid XKCD_MAIL_TO address")?);
+        builder = builder.to(addr
+            .parse()
+            .with_context(|| format!("invalid XKCD_MAIL_TO address: {addr}"))?);
     }
     builder
         .subject(&subject)
