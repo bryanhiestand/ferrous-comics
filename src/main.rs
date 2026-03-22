@@ -103,7 +103,7 @@ fn local_filename(comic: &Comic) -> String {
         .img
         .rsplit('/')
         .next()
-        .unwrap_or_else(|| comic.img.as_str());
+        .unwrap_or(comic.img.as_str());
     format!("{}-{}", comic.num, basename)
 }
 
