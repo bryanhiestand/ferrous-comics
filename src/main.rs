@@ -12,7 +12,7 @@ use redb::{Database, ReadableTable, TableDefinition};
 use serde::{Deserialize, Serialize};
 
 const XKCD_API_URL: &str = "https://xkcd.com/info.0.json";
-const USER_AGENT: &str = "ferrous-comics/0.1";
+const USER_AGENT: &str = concat!("ferrous-comics/", env!("CARGO_PKG_VERSION"));
 const LEGACY_HISTORY_FILE: &str = "xkcd_history.txt";
 const COMIC_DIR: &str = "comics";
 const COMICS_TABLE: TableDefinition<u32, &str> = TableDefinition::new("comics");

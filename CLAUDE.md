@@ -29,6 +29,10 @@ Single-binary Rust CLI (`src/main.rs`) that runs as a cron job. No modules — e
 
 **TLS**: both `reqwest` and `lettre` use `rustls-tls` (not `native-tls`), keeping the binary free of C/OpenSSL dependencies — required for cross-compilation in CI.
 
+## Opening PRs
+
+Before opening any pull request, launch a subagent to conduct an adversarial review of the changes. The subagent should act as a skeptical reviewer and look for bugs, security issues, edge cases, and correctness problems — not style preferences. Address any real issues before pushing and opening the PR.
+
 ## CI / Release
 
 - **CI** (`.github/workflows/ci.yml`): runs fmt, clippy, test on every push/PR.

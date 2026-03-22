@@ -1,0 +1,56 @@
+name: Bump version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version (e.g. 1.2.0)'
+        required: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9  # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+
+      - name: Validate and bump version
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version format: '$VERSION' (expected X.Y.Z, no leading 'v')"
+            exit 1
+          fi
+          # Replace only the first occurrence of version = "..." (the [package] entry)
+          sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$VERSION\"/}" Cargo.toml
+
+      - name: Update Cargo.lock
+        run: cargo check
+
+      - name: Open PR
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "release/v$VERSION"
+          git add Cargo.toml Cargo.lock
+          git commit -m "Bump version to $VERSION"
+          git push origin "release/v$VERSION"
+          gh pr create \
+            --title "Release v$VERSION" \
+            --body "Automated version bump to \`$VERSION\`.
+
+After merging, create the release and trigger the build:
+\`\`\`
+gh release create v$VERSION
+\`\`\`" \
+            --base main
