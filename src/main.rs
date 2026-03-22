@@ -41,7 +41,7 @@ struct ComicRecord {
 
 #[derive(Debug)]
 struct Config {
-    mail_to: String,
+    mail_to: Vec<String>,
     mail_from: String,
     download: bool,
     mail_attachment: bool,
@@ -65,7 +65,11 @@ fn load_config() -> anyhow::Result<Config> {
     }
 
     let config = Config {
-        mail_to: env("XKCD_MAIL_TO")?,
+        mail_to: env("XKCD_MAIL_TO")?
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
         mail_from: env("XKCD_MAIL_FROM")?,
         download: env_bool("XKCD_DOWNLOAD", true),
         mail_attachment: env_bool("XKCD_MAIL_ATTACHMENT", false),
@@ -84,6 +88,9 @@ fn load_config() -> anyhow::Result<Config> {
 }
 
 fn validate_config(config: &Config) -> anyhow::Result<()> {
+    if config.mail_to.is_empty() {
+        bail!("XKCD_MAIL_TO must contain at least one address");
+    }
     if config.mail_attachment && !config.download {
         bail!("XKCD_DOWNLOAD must be true when XKCD_MAIL_ATTACHMENT is true");
     }
@@ -384,17 +391,16 @@ Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comi
         alternative
     };
 
-    Message::builder()
-        .from(
-            config
-                .mail_from
-                .parse()
-                .context("invalid XKCD_MAIL_FROM address")?,
-        )
-        .to(config
-            .mail_to
+    let mut builder = Message::builder().from(
+        config
+            .mail_from
             .parse()
-            .context("invalid XKCD_MAIL_TO address")?)
+            .context("invalid XKCD_MAIL_FROM address")?,
+    );
+    for addr in &config.mail_to {
+        builder = builder.to(addr.parse().context("invalid XKCD_MAIL_TO address")?);
+    }
+    builder
         .subject(&subject)
         .multipart(body)
         .context("failed to build email message")
