@@ -1,0 +1,33 @@
+cp ../xkcd_checker/*.py ./
+
+---
+
+Rewrite @xkcd_checker.py to idiomatic Rust. Keep the code as clean and simple as feasible
+
+Update @README.md file
+
+Remove all references to this being python, this is a new project and new repo, we're just copying from our old python project
+
+---
+
+Use the gh CLI to create the repo for this project in my github account, push this branch, and create a PR referencing that this project is replacing https://github.com/bryanhiestand/xkcd_checker
+
+---
+
+try again
+
+---
+
+Review this PR for problems. Does
+
+---
+
+Review this PR for problems. Does COMIC_DIR get re-created every time? Do all of the inputs and variable names make sense?
+
+---
+
+we have PR feedback from copilot. Review and make any changes you agree with
+
+---
+
+create github actions to test and build. we want linux amd64+arm64 and darwin arm64 binaries on GH with each release
