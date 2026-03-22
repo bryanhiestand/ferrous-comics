@@ -1,0 +1,17 @@
+I accidentally merged PR #1 as a series of commits instead of a squash merge. Rewrite the history of the repo on branch main so it's just one initial commit of everything, using the PR message I tried to make (I can review that before you apply it). Then fix my current branch with that new history
+
+---
+
+push for me
+
+---
+
+why did this close my PR?
+
+---
+
+I can't reopen, that is greyed out
+
+---
+
+the social preview is too cropped. anything we can do?
