@@ -64,3 +64,7 @@ Error: Process completed with exit code 101.
 ---
 
 add to claude.md: run fmt and clippy before committing
+
+---
+
+commit push
