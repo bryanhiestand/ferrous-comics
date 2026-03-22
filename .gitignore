@@ -3,5 +3,6 @@ target/
 comics/
 xkcd_history.txt
 xkcd_history.txt.migrated
+assets/social-preview.png
 xkcd_comics.db
 .claude/settings.local.json
