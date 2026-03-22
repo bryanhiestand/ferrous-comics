@@ -88,3 +88,7 @@ should the version in cargo.toml be updated by a github action? how can we best 
 ---
 
 update our claude.md to always conduct an adversarial review with a subagent before opening a PR
+
+---
+
+cargo.lock changed but not committed
