@@ -13,7 +13,7 @@ as seen. Optionally downloads comics to `./comics/`
 1. Copy `example.env` to `.env` and fill in your SMTP credentials
 1. `cargo build --release`
 1. Run: `./target/release/ferrous-comics`
-1. The binary will create `xkcd_history.txt` and (if `XKCD_DOWNLOAD=true`) a `comics/` directory
+1. The binary will create `xkcd_comics.db` and (if `XKCD_DOWNLOAD=true`) a `comics/` directory. If `xkcd_history.txt` exists from a previous version it will be automatically migrated and renamed to `xkcd_history.txt.migrated`
 1. (optional) Install as a cron job
 
 ## Dependencies
@@ -35,6 +35,7 @@ All settings are read from environment variables (or a `.env` file) with the `XK
 | `XKCD_SMTP_PASSWORD` | no | — | SMTP password |
 | `XKCD_DOWNLOAD` | no | `true` | Download comic image locally |
 | `XKCD_MAIL_ATTACHMENT` | no | `false` | Attach image to email (requires `XKCD_DOWNLOAD=true`) |
+| `XKCD_DB_PATH` | no | `xkcd_comics.db` | Path to the comic history database |
 
 Set `RUST_LOG=debug` for verbose output.
 

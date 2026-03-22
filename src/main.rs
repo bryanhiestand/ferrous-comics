@@ -7,11 +7,13 @@ use lettre::{
     transport::smtp::authentication::Credentials,
     Message, SmtpTransport, Transport,
 };
-use serde::Deserialize;
+use redb::{Database, ReadableTable, TableDefinition};
+use serde::{Deserialize, Serialize};
 
 const XKCD_API_URL: &str = "https://xkcd.com/info.0.json";
-const HISTORY_FILE: &str = "xkcd_history.txt";
+const LEGACY_HISTORY_FILE: &str = "xkcd_history.txt";
 const COMIC_DIR: &str = "comics";
+const COMICS_TABLE: TableDefinition<u32, &str> = TableDefinition::new("comics");
 
 #[derive(Debug, Deserialize)]
 struct Comic {
@@ -22,6 +24,17 @@ struct Comic {
     year: String,
     month: String,
     day: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ComicRecord {
+    num: u32,
+    /// Unix timestamp (seconds). 0 means migrated from legacy file — timestamp unknown.
+    first_seen_utc: i64,
+    image_downloaded: bool,
+    email_sent: bool,
+    /// Unix timestamp of successful email send, if any.
+    email_sent_utc: Option<i64>,
 }
 
 #[derive(Debug)]
@@ -35,6 +48,7 @@ struct Config {
     smtp_starttls: bool,
     smtp_username: Option<String>,
     smtp_password: Option<String>,
+    db_path: PathBuf,
 }
 
 fn load_config() -> anyhow::Result<Config> {
@@ -64,6 +78,9 @@ fn load_config() -> anyhow::Result<Config> {
         smtp_starttls: env_bool("XKCD_SMTP_STARTTLS", true),
         smtp_username: std::env::var("XKCD_SMTP_USERNAME").ok(),
         smtp_password: std::env::var("XKCD_SMTP_PASSWORD").ok(),
+        db_path: std::env::var("XKCD_DB_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("xkcd_comics.db")),
     };
 
     if config.mail_attachment && !config.download {
@@ -74,6 +91,147 @@ fn load_config() -> anyhow::Result<Config> {
     }
 
     Ok(config)
+}
+
+fn open_db(path: &Path) -> anyhow::Result<Database> {
+    Database::create(path).with_context(|| format!("failed to open database at {}", path.display()))
+}
+
+/// One-time migration: imports comic numbers from the legacy xkcd_history.txt into the database,
+/// then renames the file to xkcd_history.txt.migrated. No-op if the file does not exist.
+fn migrate_history_file(db: &Database) -> anyhow::Result<()> {
+    let path = PathBuf::from(LEGACY_HISTORY_FILE);
+    if !path.exists() {
+        return Ok(());
+    }
+
+    let contents = std::fs::read_to_string(&path)
+        .context("failed to read legacy history file for migration")?;
+    let nums: Vec<u32> = contents
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.trim().parse::<u32>())
+        .collect::<Result<_, _>>()
+        .context("invalid comic number in legacy history file")?;
+
+    let count = nums.len();
+    let wtx = db
+        .begin_write()
+        .context("failed to begin migration write transaction")?;
+    {
+        let mut table = wtx
+            .open_table(COMICS_TABLE)
+            .context("failed to open comics table for migration")?;
+        for num in nums {
+            if table
+                .get(num)
+                .context("failed to query comics table")?
+                .is_none()
+            {
+                let record = ComicRecord {
+                    num,
+                    first_seen_utc: 0, // unknown — sentinel for migrated entries
+                    image_downloaded: false,
+                    email_sent: true, // assume sent — was in history
+                    email_sent_utc: None,
+                };
+                let json = serde_json::to_string(&record)
+                    .context("failed to serialize migrated record")?;
+                table
+                    .insert(num, json.as_str())
+                    .context("failed to insert migrated record")?;
+            }
+        }
+    }
+    wtx.commit()
+        .context("failed to commit migration transaction")?;
+
+    let migrated_path = format!("{}.migrated", LEGACY_HISTORY_FILE);
+    std::fs::rename(&path, &migrated_path)
+        .context("failed to rename legacy history file after migration")?;
+    log::info!(
+        "migrated {count} comics from {LEGACY_HISTORY_FILE} to database (backup: {migrated_path})"
+    );
+
+    Ok(())
+}
+
+fn is_seen(db: &Database, comic: &Comic) -> anyhow::Result<bool> {
+    let rtx = db
+        .begin_read()
+        .context("failed to begin read transaction")?;
+    match rtx.open_table(COMICS_TABLE) {
+        Ok(table) => Ok(table
+            .get(comic.num)
+            .context("failed to query comics table")?
+            .is_some()),
+        Err(redb::TableError::TableDoesNotExist(_)) => Ok(false),
+        Err(e) => Err(e).context("failed to open comics table"),
+    }
+}
+
+/// Records a comic as seen immediately, before attempting download or email.
+/// This prevents duplicate emails if the process is re-run after a partial failure.
+fn record_first_seen(db: &Database, comic: &Comic) -> anyhow::Result<()> {
+    let record = ComicRecord {
+        num: comic.num,
+        first_seen_utc: chrono::Utc::now().timestamp(),
+        image_downloaded: false,
+        email_sent: false,
+        email_sent_utc: None,
+    };
+    let json = serde_json::to_string(&record).context("failed to serialize comic record")?;
+    let wtx = db
+        .begin_write()
+        .context("failed to begin write transaction")?;
+    {
+        let mut table = wtx
+            .open_table(COMICS_TABLE)
+            .context("failed to open comics table")?;
+        table
+            .insert(comic.num, json.as_str())
+            .context("failed to insert comic record")?;
+    }
+    wtx.commit().context("failed to commit comic record")?;
+    Ok(())
+}
+
+fn record_download_success(db: &Database, num: u32) -> anyhow::Result<()> {
+    update_record(db, num, |r| r.image_downloaded = true)
+}
+
+fn record_email_success(db: &Database, num: u32) -> anyhow::Result<()> {
+    update_record(db, num, |r| {
+        r.email_sent = true;
+        r.email_sent_utc = Some(chrono::Utc::now().timestamp());
+    })
+}
+
+fn update_record(db: &Database, num: u32, f: impl FnOnce(&mut ComicRecord)) -> anyhow::Result<()> {
+    let wtx = db
+        .begin_write()
+        .context("failed to begin write transaction")?;
+    {
+        let mut table = wtx
+            .open_table(COMICS_TABLE)
+            .context("failed to open comics table")?;
+        let json_str = table
+            .get(num)
+            .context("failed to query comics table")?
+            .with_context(|| format!("comic #{num} not found in database for update"))?
+            .value()
+            .to_owned();
+        let mut record: ComicRecord =
+            serde_json::from_str(&json_str).context("failed to deserialize comic record")?;
+        f(&mut record);
+        let json = serde_json::to_string(&record).context("failed to serialize comic record")?;
+        table
+            .insert(num, json.as_str())
+            .context("failed to update comic record")?;
+    }
+    wtx.commit()
+        .context("failed to commit comic record update")?;
+    Ok(())
 }
 
 fn fetch_comic(client: &reqwest::blocking::Client) -> anyhow::Result<Comic> {
@@ -87,15 +245,6 @@ fn fetch_comic(client: &reqwest::blocking::Client) -> anyhow::Result<Comic> {
         .context("failed to parse xkcd JSON")?;
     log::debug!("fetched comic #{}: {}", comic.num, comic.safe_title);
     Ok(comic)
-}
-
-fn is_seen(comic: &Comic) -> anyhow::Result<bool> {
-    let num_str = comic.num.to_string();
-    match std::fs::read_to_string(HISTORY_FILE) {
-        Ok(contents) => Ok(contents.lines().any(|line| line.trim() == num_str)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(e) => Err(e).context("failed to read history file"),
-    }
 }
 
 fn local_filename(comic: &Comic) -> String {
@@ -239,21 +388,12 @@ Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comi
     Ok(())
 }
 
-fn record_seen(comic: &Comic) -> anyhow::Result<()> {
-    use std::io::Write;
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(HISTORY_FILE)
-        .context("failed to open history file for writing")?;
-    writeln!(file, "{}", comic.num).context("failed to write to history file")?;
-    Ok(())
-}
-
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let config = load_config()?;
+
+    let db = open_db(&config.db_path)?;
 
     let client = reqwest::blocking::Client::builder()
         .user_agent("ferrous-comics/0.1")
@@ -264,13 +404,20 @@ fn main() -> anyhow::Result<()> {
 
     let comic = fetch_comic(&client)?;
 
-    if is_seen(&comic)? {
+    migrate_history_file(&db)?;
+
+    if is_seen(&db, &comic)? {
         log::info!("comic #{} already seen, exiting", comic.num);
         return Ok(());
     }
 
+    // Mark seen immediately — prevents duplicate emails if a later step fails and cron retries.
+    record_first_seen(&db, &comic)?;
+
     let image_path = if config.download {
-        Some(download_image(&client, &comic)?)
+        let path = download_image(&client, &comic)?;
+        record_download_success(&db, comic.num)?;
+        Some(path)
     } else {
         None
     };
@@ -282,7 +429,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     send_email(&config, &comic, attachment_path)?;
-    record_seen(&comic)?;
+    record_email_success(&db, comic.num)?;
 
     Ok(())
 }
