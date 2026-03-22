@@ -1,6 +1,6 @@
 # ferrous-comics
 
-<img src="assets/logo.svg" width="96" alt="ferrous-comics logo"/>
+<img src="assets/social-preview.svg" alt="ferrous-comics — xkcd, delivered to your inbox"/>
 
 Emails the latest xkcd comic to the recipient specified in settings.
 
