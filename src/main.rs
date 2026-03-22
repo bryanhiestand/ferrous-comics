@@ -41,7 +41,7 @@ struct ComicRecord {
 
 #[derive(Debug)]
 struct Config {
-    mail_to: String,
+    mail_to: Vec<String>,
     mail_from: String,
     download: bool,
     mail_attachment: bool,
@@ -65,7 +65,11 @@ fn load_config() -> anyhow::Result<Config> {
     }
 
     let config = Config {
-        mail_to: env("XKCD_MAIL_TO")?,
+        mail_to: env("XKCD_MAIL_TO")?
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
         mail_from: env("XKCD_MAIL_FROM")?,
         download: env_bool("XKCD_DOWNLOAD", true),
         mail_attachment: env_bool("XKCD_MAIL_ATTACHMENT", false),
@@ -84,6 +88,9 @@ fn load_config() -> anyhow::Result<Config> {
 }
 
 fn validate_config(config: &Config) -> anyhow::Result<()> {
+    if config.mail_to.is_empty() {
+        bail!("XKCD_MAIL_TO must contain at least one address");
+    }
     if config.mail_attachment && !config.download {
         bail!("XKCD_DOWNLOAD must be true when XKCD_MAIL_ATTACHMENT is true");
     }
@@ -384,17 +391,18 @@ Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comi
         alternative
     };
 
-    Message::builder()
-        .from(
-            config
-                .mail_from
-                .parse()
-                .context("invalid XKCD_MAIL_FROM address")?,
-        )
-        .to(config
-            .mail_to
+    let mut builder = Message::builder().from(
+        config
+            .mail_from
             .parse()
-            .context("invalid XKCD_MAIL_TO address")?)
+            .context("invalid XKCD_MAIL_FROM address")?,
+    );
+    for addr in &config.mail_to {
+        builder = builder.to(addr
+            .parse()
+            .with_context(|| format!("invalid XKCD_MAIL_TO address: {addr}"))?);
+    }
+    builder
         .subject(&subject)
         .multipart(body)
         .context("failed to build email message")
@@ -509,7 +517,7 @@ mod tests {
 
     fn make_config() -> Config {
         Config {
-            mail_to: "to@example.com".to_string(),
+            mail_to: vec!["to@example.com".to_string()],
             mail_from: "from@example.com".to_string(),
             download: true,
             mail_attachment: false,
@@ -603,6 +611,44 @@ mod tests {
     fn config_neither_credentials_ok() {
         let cfg = make_config();
         assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn config_mail_to_single() {
+        let mut cfg = make_config();
+        cfg.mail_to = vec!["a@example.com".to_string()];
+        assert!(validate_config(&cfg).is_ok());
+        assert_eq!(cfg.mail_to.len(), 1);
+    }
+
+    #[test]
+    fn config_mail_to_multiple() {
+        // Parsing logic lives in load_config; test it via the split/trim/filter chain directly
+        let raw = "a@example.com, b@example.com";
+        let parsed: Vec<String> = raw
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        assert_eq!(parsed, vec!["a@example.com", "b@example.com"]);
+    }
+
+    #[test]
+    fn config_mail_to_trims_whitespace() {
+        let raw = "  a@example.com  ,  b@example.com  ";
+        let parsed: Vec<String> = raw
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        assert_eq!(parsed, vec!["a@example.com", "b@example.com"]);
+    }
+
+    #[test]
+    fn config_mail_to_empty_errors() {
+        let mut cfg = make_config();
+        cfg.mail_to = vec![];
+        assert!(validate_config(&cfg).is_err());
     }
 
     // ── Database ──────────────────────────────────────────────────────────────
@@ -930,5 +976,15 @@ mod tests {
         let raw = email_bytes(&config, &comic, None);
         assert!(raw.contains("to@example.com"));
         assert!(raw.contains("from@example.com"));
+    }
+
+    #[test]
+    fn email_multiple_recipients() {
+        let mut config = make_config();
+        config.mail_to = vec!["a@example.com".to_string(), "b@example.com".to_string()];
+        let comic = make_comic(1);
+        let raw = email_bytes(&config, &comic, None);
+        assert!(raw.contains("a@example.com"), "first recipient missing");
+        assert!(raw.contains("b@example.com"), "second recipient missing");
     }
 }
