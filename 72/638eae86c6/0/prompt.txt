@@ -84,3 +84,7 @@ The practical fix: bump Cargo.toml to version = "1.1.2" (or whatever the next re
     const USER_AGENT: &str = concat!("ferrous-comics/", env!("CARGO_PKG_VERSION"));
 
 should the version in cargo.toml be updated by a github action? how can we best automate this?
+
+---
+
+update our claude.md to always conduct an adversarial review with a subagent before opening a PR
