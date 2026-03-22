@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use anyhow::{Context, bail};
 use lettre::{
@@ -45,7 +46,7 @@ fn load_config() -> anyhow::Result<Config> {
 
     fn env_bool(key: &str, default: bool) -> bool {
         match std::env::var(key) {
-            Ok(v) => matches!(v.to_ascii_lowercase().as_str(), "true" | "1" | "yes"),
+            Ok(v) => matches!(v.trim().to_ascii_lowercase().as_str(), "true" | "1" | "yes"),
             Err(_) => default,
         }
     }
@@ -67,6 +68,9 @@ fn load_config() -> anyhow::Result<Config> {
 
     if config.mail_attachment && !config.download {
         bail!("XKCD_DOWNLOAD must be true when XKCD_MAIL_ATTACHMENT is true");
+    }
+    if config.smtp_username.is_some() ^ config.smtp_password.is_some() {
+        bail!("XKCD_SMTP_USERNAME and XKCD_SMTP_PASSWORD must both be set or both be unset");
     }
 
     Ok(config)
@@ -153,6 +157,21 @@ fn build_transport(config: &Config) -> anyhow::Result<SmtpTransport> {
     Ok(builder.build())
 }
 
+fn escape_html(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 fn send_email(config: &Config, comic: &Comic, attachment_path: Option<&Path>) -> anyhow::Result<()> {
     let date_str = format_date(comic)?;
     let subject = format!("New xkcd {}: {} from {}", comic.num, comic.safe_title, date_str);
@@ -165,10 +184,10 @@ fn send_email(config: &Config, comic: &Comic, attachment_path: Option<&Path>) ->
 <br>
 Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comics</a>
 </body></html>"#,
-        url = comic_url,
-        img = comic.img,
-        title = comic.safe_title,
-        alt = comic.alt,
+        url = escape_html(&comic_url),
+        img = escape_html(&comic.img),
+        title = escape_html(&comic.safe_title),
+        alt = escape_html(&comic.alt),
     );
 
     let alternative = MultiPart::alternative()
@@ -224,6 +243,8 @@ fn main() -> anyhow::Result<()> {
 
     let client = reqwest::blocking::Client::builder()
         .user_agent("ferrous-comics/0.1")
+        .connect_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(60))
         .build()
         .context("failed to build HTTP client")?;
 
