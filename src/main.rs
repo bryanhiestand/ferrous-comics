@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use anyhow::{Context, bail};
+use anyhow::{bail, Context};
 use lettre::{
-    Message, SmtpTransport, Transport,
-    message::{Attachment, MultiPart, SinglePart, header::ContentType},
+    message::{header::ContentType, Attachment, MultiPart, SinglePart},
     transport::smtp::authentication::Credentials,
+    Message, SmtpTransport, Transport,
 };
 use serde::Deserialize;
 
@@ -99,7 +99,11 @@ fn is_seen(comic: &Comic) -> anyhow::Result<bool> {
 }
 
 fn local_filename(comic: &Comic) -> String {
-    let basename = comic.img.rsplit('/').next().unwrap_or_else(|| comic.img.as_str());
+    let basename = comic
+        .img
+        .rsplit('/')
+        .next()
+        .unwrap_or_else(|| comic.img.as_str());
     format!("{}-{}", comic.num, basename)
 }
 
@@ -118,8 +122,7 @@ fn download_image(client: &reqwest::blocking::Client, comic: &Comic) -> anyhow::
         .bytes()
         .context("failed to read image bytes")?;
 
-    std::fs::write(&dest, &bytes)
-        .with_context(|| format!("failed to write {}", dest.display()))?;
+    std::fs::write(&dest, &bytes).with_context(|| format!("failed to write {}", dest.display()))?;
 
     log::info!("downloaded {filename}");
     Ok(dest)
@@ -172,9 +175,16 @@ fn escape_html(s: &str) -> String {
     out
 }
 
-fn send_email(config: &Config, comic: &Comic, attachment_path: Option<&Path>) -> anyhow::Result<()> {
+fn send_email(
+    config: &Config,
+    comic: &Comic,
+    attachment_path: Option<&Path>,
+) -> anyhow::Result<()> {
     let date_str = format_date(comic)?;
-    let subject = format!("New xkcd {}: {} from {}", comic.num, comic.safe_title, date_str);
+    let subject = format!(
+        "New xkcd {}: {} from {}",
+        comic.num, comic.safe_title, date_str
+    );
     let comic_url = format!("https://xkcd.com/{}/", comic.num);
     let plain_text = format!("{}\n{}\n\n{}", comic.safe_title, comic_url, comic.alt);
     let html_body = format!(
@@ -212,8 +222,16 @@ Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comi
     };
 
     let email = Message::builder()
-        .from(config.mail_from.parse().context("invalid XKCD_MAIL_FROM address")?)
-        .to(config.mail_to.parse().context("invalid XKCD_MAIL_TO address")?)
+        .from(
+            config
+                .mail_from
+                .parse()
+                .context("invalid XKCD_MAIL_FROM address")?,
+        )
+        .to(config
+            .mail_to
+            .parse()
+            .context("invalid XKCD_MAIL_TO address")?)
         .subject(&subject)
         .multipart(body)
         .context("failed to build email message")?;
