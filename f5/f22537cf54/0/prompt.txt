@@ -1,0 +1,7 @@
+create a PR, this will be v1.1.0
+
+---
+
+add instructions for inspecting and other database operations to the readme
+
+also, add a nifty makefile that does any obvious things we'd want
