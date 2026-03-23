@@ -1,0 +1,452 @@
+I accidentally merged PR #1 as a series of commits instead of a squash merge. Rewrite the history of the repo on branch main so it's just one initial commit of everything, using the PR message I tried to make (I can review that before you apply it). Then fix my current branch with that new history
+
+---
+
+push for me
+
+---
+
+why did this close my PR?
+
+---
+
+I can't reopen, that is greyed out
+
+---
+
+the social preview is too cropped. anything we can do?
+
+---
+
+no, it needs to be converted to png
+
+---
+
+we merged pr #3, but it failed to build:
+Compiling ferrous-comics v0.1.0 (/home/runner/work/ferrous-comics/ferrous-comics)
+warning: invoking `"xcrun" "--sdk" "macosx" "--show-sdk-path"` to find MacOSX.sdk failed: No such file or directory (os error 2)
+  |
+  = note: the SDK is needed by the linker to know where to find symbols in system libraries and for embedding the SDK version in the final object file
+  = help: pass the path of an Xcode installation via the DEVELOPER_DIR environment variable, or an SDK with the SDKROOT environment variable
+
+error: linking with `/home/runner/.cache/cargo-zigbuild/0.22.1/zigcc-aarch64-apple-darwin-aeba.sh` failed: exit status: 1
+  |
+  = note:  "/home/runner/.cache/cargo-zigbuild/0.22.1/zigcc-aarch64-apple-darwin-aeba.sh" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/deps/rustc6Jijo8/symbols.o" "<17 object files omitted>" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/deps/{libenv_logger-474d1abab87155fa,libjiff-ecd949d9235282f7,libanstream-a07640103fc22f11,libanstyle_query-8f4b41713a304d80,libis_terminal_polyfill-130f411cf33c2f93,libcolorchoice-450079f8e6f4faa3,libanstyle_parse-c227e1e2f00b9752,libutf8parse-c24a00e46ec43a85,libenv_filter-1d67bdff6ccc6aae,libregex-20e245be8ac042b8,libregex_automata-7151241de66ec7a8,libaho_corasick-927e7aeb1f370c49,libregex_syntax-c807f35719088fbc,libanstyle-f1e59c52dec52afa,libreqwest-395a9746de0c3544,libhyper_rustls-fc0a20c05a8bd346,libtokio_rustls-fd8e3a5ebb3b3565,libserde_urlencoded-b33c1f2588c639d7,libryu-793a8e452ef27093,libtower_http-88eb210dacb8ba93,libbitflags-afdce9bdc48ac0c7,libiri_string-9c44268a009351e8,libtower-1f42367c450940a0,libtower_layer-1c42aa6ecc167bc0,libhyper_util-9143a9c694591aac,libipnet-e89ad6b023e7ebdb,libtower_service-cc46757ad4c31c8d,libtracing-bb6a5a05994c0a69,libtracing_core-fa8ec80ca24dcf51,libhyper-2d70e9eafa27c609,libwant-94b4194311d938bf,libtry_lock-d09bd11526562d5e,libhttparse-fc14a91e701d8e88,libpin_utils-d8fe5631ecdbf11a,libatomic_waker-0b511e09dec44875,libfutures_channel-87577621c25f2399,libtokio-b7e78f0fe54f4f92,libmio-46a31f7f76bf42be,libhttp_body_util-a8b5e9faa209ad9f,libhttp_body-d18028b96846dd9f,libfutures_util-f2b3c61b5df9a3ec,libfutures_io-9d12fcbd4c44040e,libslab-c0159867f91794f6,libpin_project_lite-d8c7eff1a8cbcfec,libfutures_sink-612ce4bd6d18262b,libfutures_task-f60258ee3b858737,libhttp-2f44dadffe285b18,libbytes-83de7ddeca15cc44,libsync_wrapper-5993aa6cc5af495f,libfutures_core-50d02e002f631343,libchrono-4df13fdb7448f659,libiana_time_zone-780eab1bf757c043,libcore_foundation_sys-87fa7343dfc71990,libnum_traits-767366e73238300e,libserde_json-2cd3092c5c7a2346,libitoa-a9fae16475a6c04d,libzmij-89c6dd9a34f086b1,libdotenvy-f5d8632f5127eb9c,libserde-9e824f9a7c7d9053,libserde_core-bbf2828b9cdee96c,libredb-1d076cc1a9530a99,liblettre-936c4418bba2e0ed,libwebpki_roots-22e699cfb717fa3e,REDACTED,libfastrand-3277786c89a8278b,libquoted_printable-66f8c8143c1c27ed,libnom-6fd2ef1bcb3bef4f,liburl-ce590fa9b0f5cfda,libform_urlencoded-f7f3a8ad72570faf,libpercent_encoding-e50fa9d165f06460,libsocket2-80ab5c83be542a30,librustls-40d75152e0271814,libsubtle-4d611e57bd5ac622,libwebpki-509546ee28fe0a19,libring-14379c2dc407b30a,libgetrandom-3d6798716ac95034,libuntrusted-3b0a24b8022f0a84,librustls_pki_types-618bb457492a8165,libzeroize-10fd6709a719cf22,liblog-4ee717957a4fcd5f,libchumsky-d78bb2b4920dfac8,libstacker-635ecbf51d7ec5b4,libpsm-3dbcf9df742ac916,liblibc-d594011f4c5c25cb,libhashbrown-268ff9fb90fdf4ed,libahash-651be01488a79332,libonce_cell-5e3827a57665f67e,libcfg_if-f5f6b32af62b52e1,libzerocopy-d8789091ac5f6fc6,liballocator_api2-4a18170089a0ad0a,libhttpdate-a3a62609100b4a05,libmime-e23db2aa7b0a7c42,libemail_encoding-07d516e88f7ea200,libmemchr-5dcf56b56c7a4c2e,libbase64-6273496ab992170d,libidna-d0508425af86507f,libutf8_iter-f870ed093f86ac68,libidna_adapter-5c12a38543bf97b2,libicu_properties-60b722d15f5bfb95,libicu_properties_data-f4b95b43f4fde253,libicu_normalizer-3f418edc047f8821,libsmallvec-2296c9fe5cc4dc6c,libicu_normalizer_data-8f82601c60698a08,libicu_collections-23ae8424f74861bb,libpotential_utf-113ef4da21f95630,libicu_provider-86784d38523853da,libicu_locale_core-7098217d519d7e3a,libtinystr-91adb84c0f94ed61,liblitemap-c46207e7b265dbee,libwriteable-04209e76716281cf,libzerovec-f925c2963c453239,libzerotrie-b3d7440cf4844c6c,libyoke-7bc67cbbe9cffc18,libstable_deref_trait-ad0262e1d0514971,libzerofrom-026052d6c58e3b46,libemail_address-19e1500a0c326972,libanyhow-e7ee48f4510b538e}.rlib" "<sysroot>/lib/rustlib/aarch64-apple-darwin/lib/{libstd-*,libpanic_unwind-*,libobject-*,libmemchr-*,libaddr2line-*,libgimli-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-framework" "CoreFoundation" "-liconv" "-lSystem" "-lc" "-lm" "-arch" "arm64" "-mmacosx-version-min=11.0.0" "-L" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/build/psm-acd79810c403ea24/out" "-L" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/build/ring-69e4ead80b3b51e2/out" "-o" "/home/runner/work/ferrous-comics/ferrous-comics/target/aarch64-apple-darwin/release/deps/ferrous_comics-554445e50c1ba86f" "-Wl,-dead_strip" "-nodefaultlibs"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: error: unable to find framework 'CoreFoundation'. searched paths:  none
+          
+
+warning: `ferrous-comics` (bin "ferrous-comics") generated 1 warning
+error: could not compile `ferrous-comics` (bin "ferrous-comics") due to 1 previous error; 1 warning emitted
+Error: Process completed with exit code 101.
+
+---
+
+Do all of that, but on a new breach for a v1.1.1 release
+
+---
+
+The release run failed... again. Please:
+1. fix it
+2. implement something in actions for the PR to ensure we won't merge stuff to master that will fail release actions
+
+---
+
+Since your main function isn't async, you should lean toward using a purely synchronus HTTP client, you've pulled in reqwest, which is definitely the best async http client, but you're using the blocking version of it: reqwest::blocking::Client
+
+Internally, the blocking client for reqwest is very heavy handed, it spins up a dedicated async runtime, tokio, and then spawns a blocking thread.
+
+In this circumstance, a non async main, using the ureq library, would be a much better fit, and much more efficient and speedy
+
+---
+
+Evaluate and respond to review feedback from copilot
+
+---
+
+new review feedback
+
+---
+
+new feedback, two comments
+
+ureq::Error::Transport(t) is currently converted into a formatted string via anyhow!("..."), which drops the underlying transport error as a source. This makes error chains/backtraces less actionable than before. Prefer wrapping t as the error (e.g., anyhow::Error::new(t) / anyhow!(t)) and then adding context, so the root cause remains inspectable.
+
+---
+
+Copilot says: PR description claims tokio was removed from the dependency tree (and that cargo tree | grep -E 'tokio|hyper|reqwest' produces no output), but tokio is still present as a transitive dependency (e.g., via lettre in the current Cargo.lock). Please update the PR description/verification section to reflect the actual remaining deps, or adjust features/deps if the intent is truly to eliminate tokio.
+
+---
+
+The practical fix: bump Cargo.toml to version = "1.1.2" (or whatever the next release is) as part of each release PR, and change the USER_AGENT const
+     to:
+
+    const USER_AGENT: &str = concat!("ferrous-comics/", env!("CARGO_PKG_VERSION"));
+
+should the version in cargo.toml be updated by a github action? how can we best automate this?
+
+---
+
+update our claude.md to always conduct an adversarial review with a subagent before opening a PR
+
+---
+
+cargo.lock changed but not committed
+
+---
+
+Invalid workflow file: .github/workflows/bump-version.yml#L53
+You have an error in your yaml syntax on line 53
+
+---
+
+I had already merged the last PR and deleted this branch
+
+---
+
+Failed to queue workflow run: Invalid Argument - failed to parse workflow: (Line: 50, Col: 1): Unexpected value 'After merging, create the release and trigger the build'
+
+---
+
+didn't I already merge that?
+
+---
+
+pull request create failed: GraphQL: GitHub Actions is not permitted to create or approve pull requests (createPullRequest)
+
+---
+
+I already merged, you need a new branch... or just push to main
+
+---
+
+the workflow ran but I don't see a code change
+
+---
+
+This release workflow seems brittle and unnecessarily manual. Can't you just have it update the version when we cut a release or something?
+
+---
+
+1
+
+---
+
+review our TODOs. Think harder about other features and UX. What should we add to this program?
+
+---
+
+There are TODOs in the README
+
+---
+
+merged, continue. create all remaining PRs, we can merge main back into our branches as we go
+
+---
+
+<task-notification>
+<task-id>acbe75e81d7172f95</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/acbe75e81d7172f95.output</output-file>
+<status>completed</status>
+<summary>Agent "Adversarial review of multi-recipient change" completed</summary>
+<result>Here is my review. I read the actual source file so I can see exactly what currently exists and what the diff changes.
+
+---
+
+## Review of `XKCD_MAIL_TO` multi-recipient change
+
+### 1. The `.to()` accumulation behavior in lettre
+
+This is the most important thing to verify. In lettre's `MessageBuilder`, calling `.to()` multiple times does **not** accumulate recipients by default in all versions. In some lettre versions, each `.to()` call **replaces** the previous one rather than appending. The behavior changed across versions.
+
+Check your `Cargo.toml` and the lettre version in use. If lettre's `MessageBuilder::to()` replaces rather than appends, only the last recipient in the loop would receive the email — a silent data loss bug with no error. You should verify this against your exact pinned version's source or test it explicitly with two addresses.
+
+The safe alternative is to build a `lettre::message::Mailboxes` (the collection type) and call `.to()` once:
+
+```rust
+use lettre::message::Mailboxes;
+
+let mailboxes: Mailboxes = config.mail_to
+    .iter()
+    .map(|s| s.parse())
+    .collect::<Result<Mailboxes, _>>()
+    .context("invalid address in XKCD_MAIL_TO")?;
+
+builder = builder.to(mailboxes);
+```
+
+This is unambiguous regardless of lettre version behavior.
+
+### 2. Error message loses context on which address failed
+
+```rust
+builder = builder.to(addr.parse().context("invalid XKCD_MAIL_TO address")?);
+```
+
+When there are multiple addresses and one fails to parse, the error says "invalid XKCD_MAIL_TO address" but does not identify which address was the problem. With a long list this makes debugging harder than necessary. The error should include the offending address string.
+
+### 3. Address validation is deferred until send time
+
+The original code parsed `mail_to` as a single `Mailbox` string when building the message. The new code splits at config load time but does **not** validate that the individual strings are valid email addresses at load time. Parsing happens in `send_email()`.
+
+This means a malformed address in `XKCD_MAIL_TO` is not caught at startup — it only surfaces after fetching the comic, marking it as seen in the database, and potentially downloading the image. By that point `record_first_seen` has already written to the database. The comic will never be emailed because every subsequent run will exit early at `is_seen()`.
+
+The existing code has this same sequencing problem for a single bad address, so this is not a regression, but it's worth noting the new validation added in `load_config()` only checks for an empty list — it does not validate address syntax. If you want early failure, parse the addresses in `load_config()` and store `Vec<lettre::message::Mailbox>` in the config struct instead of `Vec<String>`.
+
+### 4. No whitespace trimming covers the common `.env` format
+
+The `.trim()` in the `split(',').map(|s| s.trim().to_string())` chain correctly handles spaces around commas (`a@x.com, b@x.com`). This is fine.
+
+### 5. The `is_empty()` guard is correct
+
+Filtering empty strings after splitting before the `is_empty()` check means `XKCD_MAIL_TO=,,,` correctly errors rather than silently doing nothing. This is fine.
+
+---
+
+## Summary
+
+| Issue | Severity | Regression? |
+|---|---|---|
+| `lettre` `.to()` may replace rather than accumulate (version-dependent) | High — silent data loss | Yes |
+| Error message on bad address omits which address failed | Low | Yes |
+| Address validation still deferred to send time; bad address leaves comic permanently skipped | Medium | No (pre-existing) |
+
+The primary real issue to resolve before merging is #1: confirm whether your pinned lettre version's `MessageBuilder::to()` accumulates or replaces, and switch to the `Mailboxes` collector type to make the behavior unambiguous.</result>
+<usage><total_tokens>16903</total_tokens><tool_uses>1</tool_uses><duration_ms>31394</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/acbe75e81d7172f95.output
+
+---
+
+<task-notification>
+<task-id>a075a6e43fe24155a</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/a075a6e43fe24155a.output</output-file>
+<status>completed</status>
+<summary>Agent "Adversarial review of prettier HTML change" completed</summary>
+<result>Here are the real issues I found, in order of severity:
+
+---
+
+**1. `{title}` and `{alt}` attributes are swapped on the `<img>` tag (correctness bug)**
+
+In the "after" template:
+```
+<img src="{img}" alt="{title}" title="{alt}" ...>
+```
+
+The HTML `alt` attribute (screen readers, broken image fallback) is receiving `safe_title`, and the HTML `title` attribute (tooltip) is receiving the alt text. This is backwards. The xkcd convention — mirrored correctly in the "before" template — is that `alt` on the image element holds the comic's alt/hover text, and `title` holds the comic's title. A screen reader user will hear the title text read as the image description instead of the (often punchline-bearing) alt text.
+
+---
+
+**2. `format_date` errors are silently swallowed in the subject line**
+
+`format_date` is called twice: once in `send_email` (where the `?` propagates errors correctly), and once earlier in `main` for the email subject at line 342–344:
+
+```rust
+let subject = format!(
+    "New xkcd {}: {} from {}",
+    comic.num, comic.safe_title, date_str
+);
+```
+
+Wait — actually `date_str` is computed once at the top of `send_email` and reused. That is fine. This is not a bug.
+
+---
+
+**3. `&middot;` is a named HTML entity — confirm it renders correctly in plain-text clients**
+
+This is not a security issue, but it is a correctness edge case: `&middot;` only renders as `·` inside an HTML context. If any mail client renders the HTML part as raw text (unlikely but possible with broken clients), it will be displayed literally. The plain-text part is unaffected since it's a separate MIME part. Not a real bug, just worth noting.
+
+---
+
+**4. `comic.img` URL is used directly in `<img src>` without validating scheme (minor injection risk)**
+
+The image URL comes from the xkcd API and is passed through `escape_html`, which neutralizes HTML attribute injection characters. However, `escape_html` does not validate the URL scheme. If the xkcd API ever returned a `javascript:` or `data:` URI for `img`, it would be injected as the `src`. In practice this is low-risk since the source is a trusted third-party API, and `javascript:` on `src` is inert in all modern browsers. It's a defense-in-depth gap, not an actively exploitable issue given the threat model.
+
+---
+
+**Summary**
+
+The only real bug is **#1**: the `alt` and `title` HTML attributes are swapped on the `<img>` tag. In the original template they were correct (`alt="{alt}" title="{title}"`... actually in the before template it was `title="{alt}" alt="{title}"` — let me recheck).
+
+Actually, re-reading the "before" carefully:
+```
+<img title="{alt}" alt="{title}" ...>
+```
+
+The "before" template also has them swapped — `alt=` gets `{title}` (safe_title) and `title=` gets `{alt}` (the alt text). The "after" preserves the same swap:
+```
+<img src="{img}" alt="{title}" title="{alt}" ...>
+```
+
+So the new template faithfully replicates the existing (incorrect) attribute assignment. This is **not a regression introduced by this diff**, but it is a pre-existing correctness bug that this diff carries forward and is worth fixing now while the template is being touched. Screen readers read the `alt` attribute; putting the comic title there instead of the actual alt text defeats accessibility.
+
+To fix: swap the values so `alt="{alt}"` and `title="{title}"` (where `{alt}` maps to `escape_html(&comic.alt)` and `{title}` maps to `escape_html(&comic.safe_title)`).</result>
+<usage><total_tokens>17400</total_tokens><tool_uses>2</tool_uses><duration_ms>29793</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/a075a6e43fe24155a.output
+
+---
+
+<task-notification>
+<task-id>afe516de05f43c69e</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/afe516de05f43c69e.output</output-file>
+<status>completed</status>
+<summary>Agent "Adversarial review of backfill implementation" completed</summary>
+<result>Here is my review. I read the full source file rather than relying solely on the submitted snippets.
+
+---
+
+## Bugs and Correctness Issues
+
+### 1. `backfill_limit = 0` still sends `latest.num` — this is a behavior change, not a no-op
+
+**Location:** `main()`, lines 485-489
+
+```rust
+let candidates: Vec<u32> = if config.backfill_limit > 0 {
+    (start..=latest.num).take(config.backfill_limit).collect()
+} else {
+    vec![latest.num]   // ← always runs when limit is 0
+};
+```
+
+The documentation says `0 = disabled`. But the `else` branch always pushes `latest.num` into candidates regardless of whether it has already been seen. The `is_seen` check at the top of the loop catches it and skips it, so no duplicate email is sent — but the semantics are still wrong: a user who sets `backfill_limit=0` expecting "no backfill, just normal behavior" actually gets exactly normal behavior, so functionally it works. The issue is the opposite case: a user who sets `backfill_limit=0` expecting to **disable all comic sending** (a reasonable reading of "disabled") will still get the latest comic emailed. The variable name and its documented meaning are ambiguous. This is at minimum a documentation/naming bug, and could be a real behavior bug depending on operator intent.
+
+### 2. `last` overflow: `last.map(|m| m + 1)` can panic on `u32::MAX`
+
+**Location:** `main()`, line 484
+
+```rust
+let start = last.map(|m| m + 1).unwrap_or(latest.num);
+```
+
+If the highest recorded comic number is `u32::MAX` (4,294,967,295), this overflows and panics in debug builds, or wraps to 0 in release builds (producing `0..=latest.num`, a huge candidate list). xkcd is at comic ~3100 today, so this will not occur in practice for decades, but Rust's default integer arithmetic does not make it safe by construction. Using `m.saturating_add(1)` would be cleaner and panic-safe.
+
+### 3. `fetch_comic_by_num` skips on any error, including transient network failures — this silently drops comics permanently
+
+**Location:** `main()`, lines 500-506
+
+```rust
+Err(e) => {
+    log::warn!("skipping comic #{num}: {e:#}");
+    continue;
+}
+```
+
+When a comic is skipped due to a network timeout or a 5xx error, the loop continues to the next comic. On the next cron run, `last_seen_num` will return the last *successfully written* comic, so skipped comics will be retried (the database was not updated for them). This is correct behavior.
+
+However, comic #404 is the documented special case: the xkcd API returns HTTP 404 for it. The `fetch_comic_by_num` function maps any HTTP error status to a generic error message (`"xkcd API returned HTTP 404"`). This means #404 is logged as a warning and skipped every single run where the backfill range includes it — because it is never recorded as seen, it will never advance past 404. **This is a real bug**: the tool will be permanently stuck re-warning about #404 on every run that encounters it, and `last_seen_num` will never return a value >= 404 until it is manually resolved.
+
+To fix: after a 404 response in `fetch_comic_by_num`, the caller should mark the comic as seen (possibly with a special flag) to advance past it, rather than treating it identically to a transient transport error.
+
+### 4. The `is_seen` check is redundant but its absence would be a correctness problem
+
+**Location:** `main()`, line 509
+
+This is defensive code and correct. However: if `record_first_seen` is called and then the process crashes before `record_email_success`, the next run will call `is_seen` → true → skip. That means no email is ever sent for that comic, and `email_sent` in the DB stays `false`. This is the stated design tradeoff ("prevents duplicate emails if a later step fails") — acceptable, but worth confirming it is intentional. It is documented, so this is not a bug, just a callout.
+
+### 5. `download_image` failure aborts the entire run for remaining candidates
+
+**Location:** `main()`, lines 517-523
+
+```rust
+let image_path = if config.download {
+    let path = download_image(&agent, &comic)?;  // ← propagates with ?
+    ...
+};
+```
+
+The `?` operator propagates the error out of the `for` loop entirely. If downloading comic #2 of a 5-comic backfill batch fails, comics #3–#5 are never processed. This is inconsistent with the `fetch_comic_by_num` error handling above, which logs-and-continues. A download failure (transient HTTP error, disk full) should arguably also be a `log::warn` + `continue` to allow remaining comics to be processed. As written, a single download failure stops all further processing for that cron invocation.
+
+The same applies to `send_email(...)` — a send failure for comic N aborts processing of N+1 through the end of the batch.
+
+### 6. Comic number mismatch between requested `num` and returned `comic.num` is unchecked
+
+**Location:** `fetch_comic_by_num`, after the JSON parse
+
+The xkcd API is trusted to return the correct comic for the requested URL. If the API ever returns a different `num` in its JSON body than was requested (malformed response, redirect to a different comic), the code will record the wrong comic number as seen and email a different comic than expected. A single assertion — `anyhow::ensure!(comic.num == num, ...)` — after the parse would catch this.
+
+---
+
+## Summary of real issues, ranked by severity
+
+| # | Issue | Severity |
+|---|-------|----------|
+| 3 | Comic #404 is never marked seen → tool warns forever and backfill stalls | High |
+| 5 | Download or email failure aborts remaining candidates in the batch | Medium |
+| 1 | `backfill_limit = 0` meaning is ambiguous / may not match user expectation | Low-Medium |
+| 6 | API response `num` field not validated against requested num | Low |
+| 2 | `u32::MAX` overflow in `start` computation | Negligible (theoretical) |</result>
+<usage><total_tokens>18779</total_tokens><tool_uses>1</tool_uses><duration_ms>46118</duration_ms></usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-503/-Users-bryan-git-bryanhiestand-ferrous-comics/722db7c9-9d3f-42ea-ae53-305196c88c01/tasks/afe516de05f43c69e.output
+
+---
+
+All of these manual testing tasks in PRs are getting to be a bit too much. Is it feasible to come up with a comprehensive test plan, including unit and itests? I'd be okay with mocking xkcd API and SMTP if appropriate
+
+If so, could we add a main test harness as its own PR, then update the test harness appropriately for all other open PRs?
+
+---
+
+In addition to all of that, update claude.md instructions to update tests appropriately when changing code
+
+---
+
+merged, now do 12. merge these PRs one by one if all tests pass
+
+---
+
+All PRs are merged, I am on the latest commit on main.
+
+Deleting all history and DB files, I only get one comic. Should I be getting more?
+
+(base) bryan@BryanMBP (main) ferrous-comics $ cargo run .
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running `target/debug/ferrous-comics .`
+[INFO  ferrous_comics] downloaded 3222-star_formation.png
+[WARN  rustls::common_state] TLS alert warning received: AlertMessagePayload { level: Warning, description: UserCanceled }
+[INFO  ferrous_comics] emailed comic #3222: Star Formation
+
+---
+
+Create release 1.3.0, with brief release notes explaining all of the changes
+
+---
+
+Do we now have full test coverage? Should we be adding any pretty badges or anything for test coverage?
+
+---
+
+main.rs has gotten huge. can we break this up into smaller files? Maybe something like 
+main.rs
+foo/mod.rs
+foo/test.rs
+bar/mod.rs
+bar/test.rs
+
+Or whatever you think is appropriate and idiomatic
+
+---
+
+we should have a consistent branching strategy / naming scheme. thoughts?
+
+---
+
+all of that, and also no direct commits to main unless I say so. use PRs
+
+---
+
+Are there any other best practices, design or architectural decisions we should be adding to claude.md or the README? This is a solo project, but we want it to be idiomatic, correct, clean, and well organized+Documented
+
+---
+
+I just merged #18
+
+---
+
+let's add a license. what are my good options?
