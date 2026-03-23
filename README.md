@@ -3,6 +3,7 @@
 <img src="assets/social-preview.svg" alt="ferrous-comics — xkcd, delivered to your inbox"/>
 
 [![CI](https://github.com/bryanhiestand/ferrous-comics/actions/workflows/ci.yml/badge.svg)](https://github.com/bryanhiestand/ferrous-comics/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Emails the latest xkcd comic to the recipient specified in settings.
 
