@@ -460,3 +460,66 @@ I want to be able to run "ferrous-comics version" and get the version + commit h
 That is merged, we are back on main branch.
 
 Our cargo.toml has edition = "2021" .. why 2021 and not 2025?
+
+---
+
+CI checks failed. You were supposed to check that before creating the PR:
+
+Run cargo fmt --check
+Diff in /home/runner/work/ferrous-comics/ferrous-comics/src/config.rs:1:
+-use anyhow::{bail, Context};
++use anyhow::{Context, bail};
+ 
+ #[derive(Debug)]
+ pub struct Config {
+Diff in /home/runner/work/ferrous-comics/ferrous-comics/src/email.rs:2:
+ 
+ use anyhow::Context;
+ use lettre::{
+-    message::{header::ContentType, Attachment, MultiPart, SinglePart},
+-    transport::smtp::authentication::Credentials,
+     Message, SmtpTransport, Transport,
++    message::{Attachment, MultiPart, SinglePart, header::ContentType},
++    transport::smtp::authentication::Credentials,
+ };
+ 
+ use crate::config::Config;
+Diff in /home/runner/work/ferrous-comics/ferrous-comics/src/email.rs:11:
+-use crate::http::{local_filename, Comic};
++use crate::http::{Comic, local_filename};
+ 
+ pub(crate) fn escape_html(s: &str) -> String {
+     let mut out = String::with_capacity(s.len());
+Diff in /home/runner/work/ferrous-comics/ferrous-comics/src/http.rs:46:
+         Ok(r) => r,
+         Err(ureq::Error::Status(404, _)) => return Ok(None),
+         Err(ureq::Error::Status(code, _)) => {
+-            return Err(anyhow::anyhow!("xkcd API returned HTTP {code}"))
++            return Err(anyhow::anyhow!("xkcd API returned HTTP {code}"));
+         }
+         Err(ureq::Error::Transport(t)) => {
+-            return Err(anyhow::Error::new(t).context("failed to reach xkcd API"))
++            return Err(anyhow::Error::new(t).context("failed to reach xkcd API"));
+         }
+     };
+     let comic = resp
+Diff in /home/runner/work/ferrous-comics/ferrous-comics/src/main.rs:12:
+     record_email_success, record_first_seen,
+ };
+ use email::send_email;
+-use http::{download_image, fetch_comic, fetch_comic_by_num, Comic, XKCD_BASE_URL};
++use http::{Comic, XKCD_BASE_URL, download_image, fetch_comic, fetch_comic_by_num};
+ 
+ const LEGACY_HISTORY_FILE: &str = "xkcd_history.txt";
+ const COMIC_DIR: &str = "comics";
+Diff in /home/runner/work/ferrous-comics/ferrous-comics/src/main.rs:151:
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+-    use db::{ComicRecord, COMICS_TABLE};
++    use db::{COMICS_TABLE, ComicRecord};
+     use http::make_comic;
+     use redb::ReadableTable;
+ 
+
+Other CI checks may also have failed
