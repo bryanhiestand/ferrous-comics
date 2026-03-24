@@ -63,15 +63,19 @@ pub fn validate_config(config: &Config) -> anyhow::Result<()> {
     if config.smtp_username.is_some() != config.smtp_password.is_some() {
         bail!("XKCD_SMTP_USERNAME and XKCD_SMTP_PASSWORD must both be set or both be unset");
     }
-    if config.smtp_server.trim().is_empty() {
+    let smtp = config.smtp_server.trim();
+    if smtp.is_empty() {
         bail!("XKCD_SMTP_SERVER must not be empty");
     }
-    if !config.smtp_server.is_ascii() {
+    if smtp != config.smtp_server {
+        bail!("XKCD_SMTP_SERVER must not have leading or trailing whitespace");
+    }
+    if !smtp.is_ascii() {
         bail!(
             "XKCD_SMTP_SERVER must be ASCII (use punycode for internationalized domains; IDNA normalization is disabled)"
         );
     }
-    if config.smtp_server.chars().any(|c| c.is_ascii_control()) {
+    if smtp.chars().any(|c| c.is_ascii_control()) {
         bail!("XKCD_SMTP_SERVER must not contain control characters");
     }
     Ok(())
@@ -202,11 +206,9 @@ mod tests {
     }
 
     #[test]
-    fn config_smtp_server_whitespace_trimmed_at_load() {
-        // load_config trims smtp_server; validate_config sees the trimmed value
+    fn config_smtp_server_leading_trailing_whitespace_errors() {
         let mut cfg = make_config();
-        cfg.smtp_server = " smtp.example.com ".trim().to_string();
-        assert!(validate_config(&cfg).is_ok());
-        assert_eq!(cfg.smtp_server, "smtp.example.com");
+        cfg.smtp_server = " smtp.example.com ".to_string();
+        assert!(validate_config(&cfg).is_err());
     }
 }
