@@ -1,0 +1,5 @@
+CI ran, check the results for me
+
+---
+
+I thought I setup claude code to not do attribution in PR or commits. Did I miss a setting? Please help me correct that, then remove it from this commit+PR, rewring history if need be
