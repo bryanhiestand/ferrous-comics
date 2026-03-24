@@ -153,7 +153,6 @@ mod tests {
     use super::*;
     use db::{COMICS_TABLE, ComicRecord};
     use http::make_comic;
-    use redb::ReadableTable;
 
     /// Helper: compute backfill candidates using the same logic as main()
     fn backfill_candidates(last: Option<u32>, latest: u32, limit: u32) -> Vec<u32> {

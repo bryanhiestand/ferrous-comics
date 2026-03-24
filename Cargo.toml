@@ -8,7 +8,7 @@ license = "MIT"
 anyhow     = "1.0"
 chrono     = { version = "0.4", default-features = false, features = ["std"] }
 dotenvy    = "0.15"
-env_logger = { version = "0.11", default-features = false, features = ["auto-color", "regex"] }
+env_logger = { version = "0.11", default-features = false, features = ["auto-color"] }
 lettre     = { version = "0.11", default-features = false, features = ["smtp-transport", "rustls-tls", "builder", "hostname"] }
 log        = "0.4"
 ureq       = { version = "2", features = ["json"] }
@@ -19,3 +19,10 @@ redb       = "2"
 [dev-dependencies]
 tempfile = "3"
 mockito  = "1"
+
+[profile.release]
+strip         = true    # remove debug symbols (~50-70% size reduction)
+lto           = "thin"  # cross-crate dead-code elimination without fat-LTO compile cost
+codegen-units = 1       # maximize intra-crate optimization
+opt-level     = "z"     # optimize for size over speed (cron CLI, not throughput-bound)
+panic         = "abort" # eliminate unwinding machinery; safe — no catch_unwind in codebase

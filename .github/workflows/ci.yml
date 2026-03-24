@@ -27,9 +27,21 @@ jobs:
           toolchain: stable
           targets: aarch64-apple-darwin
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+      - name: Cache cargo-zigbuild
+        id: cache-zigbuild
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
+        with:
+          path: ~/.cargo/bin/cargo-zigbuild
+          key: cargo-zigbuild-0.22.1-${{ runner.os }}
+      - name: Cache zig pip download
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
+        with:
+          path: ~/.cache/pip
+          key: ziglang-pip-0.15.2
       - name: Install zig
         run: pip3 install ziglang==0.15.2
       - name: Install cargo-zigbuild
+        if: steps.cache-zigbuild.outputs.cache-hit != 'true'
         run: cargo install --locked cargo-zigbuild --version 0.22.1
       - name: Build darwin-arm64
         run: cargo zigbuild --release --target aarch64-apple-darwin

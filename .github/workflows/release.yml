@@ -28,10 +28,24 @@ jobs:
           sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$VERSION\"/}" Cargo.toml
           cargo check
 
+      - name: Cache cargo-zigbuild
+        id: cache-zigbuild
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
+        with:
+          path: ~/.cargo/bin/cargo-zigbuild
+          key: cargo-zigbuild-0.22.1-${{ runner.os }}
+
+      - name: Cache zig pip download
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
+        with:
+          path: ~/.cache/pip
+          key: ziglang-pip-0.15.2
+
       - name: Install zig
         run: pip3 install ziglang==0.15.2
 
       - name: Install cargo-zigbuild
+        if: steps.cache-zigbuild.outputs.cache-hit != 'true'
         run: cargo install --locked cargo-zigbuild --version 0.22.1
 
       - name: Build linux-amd64
