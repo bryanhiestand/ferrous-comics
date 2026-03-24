@@ -41,8 +41,12 @@ pub fn load_config() -> anyhow::Result<Config> {
             .parse()
             .context("XKCD_SMTP_PORT must be a number")?,
         smtp_starttls: env_bool("XKCD_SMTP_STARTTLS", true),
-        smtp_username: std::env::var("XKCD_SMTP_USERNAME").ok(),
-        smtp_password: std::env::var("XKCD_SMTP_PASSWORD").ok(),
+        smtp_username: std::env::var("XKCD_SMTP_USERNAME")
+            .ok()
+            .map(|v| v.trim().to_string()),
+        smtp_password: std::env::var("XKCD_SMTP_PASSWORD")
+            .ok()
+            .map(|v| v.trim().to_string()),
         backfill_limit: std::env::var("XKCD_BACKFILL_LIMIT")
             .unwrap_or_else(|_| "5".into())
             .parse()
@@ -77,6 +81,14 @@ pub fn validate_config(config: &Config) -> anyhow::Result<()> {
         .any(|c| c.is_ascii_control() || c.is_ascii_whitespace())
     {
         bail!("XKCD_SMTP_SERVER must not contain whitespace or control characters");
+    }
+    if config.smtp_server.contains('@') {
+        bail!("XKCD_SMTP_SERVER must be a bare hostname or IP address, not a user@host value");
+    }
+    if config.smtp_server.contains("://") {
+        bail!(
+            "XKCD_SMTP_SERVER must be a bare hostname or IP address, not a URL (remove the scheme)"
+        );
     }
     Ok(())
 }
@@ -223,6 +235,20 @@ mod tests {
     fn config_smtp_server_embedded_space_errors() {
         let mut cfg = make_config();
         cfg.smtp_server = "smtp example.com".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_at_sign_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "user@smtp.example.com".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_url_scheme_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp://smtp.example.com".to_string();
         assert!(validate_config(&cfg).is_err());
     }
 }
