@@ -46,10 +46,10 @@ pub fn fetch_comic_by_num(
         Ok(r) => r,
         Err(ureq::Error::Status(404, _)) => return Ok(None),
         Err(ureq::Error::Status(code, _)) => {
-            return Err(anyhow::anyhow!("xkcd API returned HTTP {code}"))
+            return Err(anyhow::anyhow!("xkcd API returned HTTP {code}"));
         }
         Err(ureq::Error::Transport(t)) => {
-            return Err(anyhow::Error::new(t).context("failed to reach xkcd API"))
+            return Err(anyhow::Error::new(t).context("failed to reach xkcd API"));
         }
     };
     let comic = resp
