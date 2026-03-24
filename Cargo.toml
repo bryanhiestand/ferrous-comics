@@ -11,7 +11,11 @@ dotenvy    = "0.15"
 env_logger = { version = "0.11", default-features = false, features = ["auto-color"] }
 lettre     = { version = "0.11", default-features = false, features = ["smtp-transport", "rustls-tls", "builder", "hostname"] }
 log        = "0.4"
-ureq       = { version = "2", features = ["json"] }
+ureq       = { version = "2", default-features = false, features = ["tls", "json"] }
+idna_adapter = "=1.0.0"                                    # stub out IDNA Unicode normalization (via
+                                                           # url/idna used by both ureq and lettre);
+                                                           # all hostnames must be ASCII/punycode —
+                                                           # validated at startup for XKCD_SMTP_SERVER
 serde      = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 redb       = "2"
@@ -24,5 +28,10 @@ mockito  = "1"
 strip         = true    # remove debug symbols (~50-70% size reduction)
 lto           = "thin"  # cross-crate dead-code elimination without fat-LTO compile cost
 codegen-units = 1       # maximize intra-crate optimization
-opt-level     = "z"     # optimize for size over speed (cron CLI, not throughput-bound)
-panic         = "abort" # eliminate unwinding machinery; safe — no catch_unwind in codebase
+opt-level     = "z"     # optimize for size: 2.0 MiB vs 2.2 MiB ("s") vs 2.5 MiB ("3")
+panic         = "abort" # saves ~300 KiB by stripping unwind tables from dependencies; this crate
+                        # doesn't use catch_unwind, and for this CLI panics are treated as fatal
+                        # either way — abort keeps the binary smaller and skips unwinding /
+                        # running destructors on failure. redb uses a write-ahead log so an abort
+                        # mid-run leaves the DB consistent; there are no connections to close
+                        # gracefully (SMTP and HTTP are fire-and-forget per run)

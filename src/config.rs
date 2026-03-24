@@ -35,7 +35,7 @@ pub fn load_config() -> anyhow::Result<Config> {
         mail_from: env("XKCD_MAIL_FROM")?,
         download: env_bool("XKCD_DOWNLOAD", true),
         mail_attachment: env_bool("XKCD_MAIL_ATTACHMENT", false),
-        smtp_server: env("XKCD_SMTP_SERVER")?,
+        smtp_server: env("XKCD_SMTP_SERVER")?.trim().to_string(),
         smtp_port: std::env::var("XKCD_SMTP_PORT")
             .unwrap_or_else(|_| "587".into())
             .parse()
@@ -62,6 +62,29 @@ pub fn validate_config(config: &Config) -> anyhow::Result<()> {
     }
     if config.smtp_username.is_some() != config.smtp_password.is_some() {
         bail!("XKCD_SMTP_USERNAME and XKCD_SMTP_PASSWORD must both be set or both be unset");
+    }
+    if config.smtp_server.is_empty() {
+        bail!("XKCD_SMTP_SERVER must not be empty");
+    }
+    if !config.smtp_server.is_ascii() {
+        bail!(
+            "XKCD_SMTP_SERVER must be ASCII (use punycode for internationalized domains; IDNA normalization is disabled)"
+        );
+    }
+    if config
+        .smtp_server
+        .chars()
+        .any(|c| c.is_ascii_control() || c.is_ascii_whitespace())
+    {
+        bail!("XKCD_SMTP_SERVER must not contain whitespace or control characters");
+    }
+    if config.smtp_server.contains('@') {
+        bail!("XKCD_SMTP_SERVER must be a bare hostname or IP address, not a user@host value");
+    }
+    if config.smtp_server.contains("://") {
+        bail!(
+            "XKCD_SMTP_SERVER must be a bare hostname or IP address, not a URL (remove the scheme)"
+        );
     }
     Ok(())
 }
@@ -159,6 +182,69 @@ mod tests {
     fn config_mail_to_empty_errors() {
         let mut cfg = make_config();
         cfg.mail_to = vec![];
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_non_ascii_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp.例え.jp".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_empty_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_all_whitespace_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "   ".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_control_char_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp.example\n.com".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_ascii_ok() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp.example.com".to_string();
+        assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn config_smtp_server_leading_trailing_whitespace_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = " smtp.example.com ".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_embedded_space_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp example.com".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_at_sign_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "user@smtp.example.com".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_url_scheme_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp://smtp.example.com".to_string();
         assert!(validate_config(&cfg).is_err());
     }
 }
