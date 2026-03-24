@@ -1,0 +1,5 @@
+Read and address copilot's review feedback
+
+---
+
+if copilot is correct in its assessment, should we still have panic = abort?
