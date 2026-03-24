@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "adfa16a507b6",
+  "strategy": "manual-commit",
+  "branch": "chore/reduce-binary-size",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/config.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ad/fa16a507b6/0/metadata.json",
+      "transcript": "/ad/fa16a507b6/0/full.jsonl",
+      "content_hash": "/ad/fa16a507b6/0/content_hash.txt",
+      "prompt": "/ad/fa16a507b6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 9,
+    "cache_creation_tokens": 4091,
+    "cache_read_tokens": 474620,
+    "output_tokens": 2884,
+    "api_call_count": 7
+  }
+}

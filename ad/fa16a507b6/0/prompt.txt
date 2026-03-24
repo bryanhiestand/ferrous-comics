@@ -1,0 +1,1 @@
+The new SMTP server validation tests don't cover leading/trailing whitespace or ASCII control characters (which currently pass is_ascii() and the non-empty check). Adding a test for something like " smtp.example.com " (or a newline) would lock in the intended behavior once trimming/rejecting whitespace is implemented.
