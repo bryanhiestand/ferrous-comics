@@ -63,20 +63,20 @@ pub fn validate_config(config: &Config) -> anyhow::Result<()> {
     if config.smtp_username.is_some() != config.smtp_password.is_some() {
         bail!("XKCD_SMTP_USERNAME and XKCD_SMTP_PASSWORD must both be set or both be unset");
     }
-    let smtp = config.smtp_server.trim();
-    if smtp.is_empty() {
+    if config.smtp_server.is_empty() {
         bail!("XKCD_SMTP_SERVER must not be empty");
     }
-    if smtp != config.smtp_server {
-        bail!("XKCD_SMTP_SERVER must not have leading or trailing whitespace");
-    }
-    if !smtp.is_ascii() {
+    if !config.smtp_server.is_ascii() {
         bail!(
             "XKCD_SMTP_SERVER must be ASCII (use punycode for internationalized domains; IDNA normalization is disabled)"
         );
     }
-    if smtp.chars().any(|c| c.is_ascii_control()) {
-        bail!("XKCD_SMTP_SERVER must not contain control characters");
+    if config
+        .smtp_server
+        .chars()
+        .any(|c| c.is_ascii_control() || c.is_ascii_whitespace())
+    {
+        bail!("XKCD_SMTP_SERVER must not contain whitespace or control characters");
     }
     Ok(())
 }
@@ -187,6 +187,13 @@ mod tests {
     #[test]
     fn config_smtp_server_empty_errors() {
         let mut cfg = make_config();
+        cfg.smtp_server = "".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_all_whitespace_errors() {
+        let mut cfg = make_config();
         cfg.smtp_server = "   ".to_string();
         assert!(validate_config(&cfg).is_err());
     }
@@ -209,6 +216,13 @@ mod tests {
     fn config_smtp_server_leading_trailing_whitespace_errors() {
         let mut cfg = make_config();
         cfg.smtp_server = " smtp.example.com ".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_embedded_space_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp example.com".to_string();
         assert!(validate_config(&cfg).is_err());
     }
 }
