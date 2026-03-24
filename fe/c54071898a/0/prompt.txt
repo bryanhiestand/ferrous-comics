@@ -1,0 +1,1 @@
+Co-pilot found more issues in review, despite me asking you to review this yourself. Use an adversarial review subagent if needed. Check and double-check your work before pushing your commit.
