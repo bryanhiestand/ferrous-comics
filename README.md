@@ -107,8 +107,3 @@ ferrous-comics dump | jq '.first_seen_utc' | xargs -I{} date -r {}
 ## Limitations
 
 * Must have file write access in the binary's working directory
-* Only supports SMTP
-
-## TODO
-
-* Test other email providers
