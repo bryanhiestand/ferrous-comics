@@ -30,8 +30,8 @@ lto           = "thin"  # cross-crate dead-code elimination without fat-LTO comp
 codegen-units = 1       # maximize intra-crate optimization
 opt-level     = "z"     # optimize for size: 2.0 MiB vs 2.2 MiB ("s") vs 2.5 MiB ("3")
 panic         = "abort" # saves ~300 KiB by stripping unwind tables from dependencies; this crate
-                        # doesn't use catch_unwind, and for this CLI a panic in any dep is already
-                        # a fatal event — we want the process to die and the cron log to show a
-                        # failure, not silent recovery. redb uses a write-ahead log so an abort
+                        # doesn't use catch_unwind, and for this CLI panics are treated as fatal
+                        # either way — abort keeps the binary smaller and skips unwinding /
+                        # running destructors on failure. redb uses a write-ahead log so an abort
                         # mid-run leaves the DB consistent; there are no connections to close
                         # gracefully (SMTP and HTTP are fire-and-forget per run)
