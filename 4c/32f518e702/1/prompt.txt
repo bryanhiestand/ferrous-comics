@@ -1,0 +1,3 @@
+We are preparing another release. Review this codebase, documentation, and claude.md for any improvements, optimizations, or changes we should make as we will not have another release for a while
+
+things that may be worth considering: reducing the size of the binary and compile time. Adding cache to github actions to speed up GHA. Removing debug symbols?
