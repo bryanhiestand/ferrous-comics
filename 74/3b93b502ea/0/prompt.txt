@@ -1,0 +1,2 @@
+more PR feedback:
+idna_adapter is added as a direct dependency solely to influence transitive resolution (via url/idna, also pulled in by lettre and ureq). The inline comment frames this as only about xkcd.com, but the downgrade affects IDNA handling for the user-provided XKCD_SMTP_SERVER as well. Please either (a) document this broader behavior change explicitly (e.g., require ASCII/punycode hostnames), and/or (b) add config validation to fail fast when smtp_server contains non-ASCII so the regression is obvious.
