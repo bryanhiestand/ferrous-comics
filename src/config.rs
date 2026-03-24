@@ -35,7 +35,7 @@ pub fn load_config() -> anyhow::Result<Config> {
         mail_from: env("XKCD_MAIL_FROM")?,
         download: env_bool("XKCD_DOWNLOAD", true),
         mail_attachment: env_bool("XKCD_MAIL_ATTACHMENT", false),
-        smtp_server: env("XKCD_SMTP_SERVER")?,
+        smtp_server: env("XKCD_SMTP_SERVER")?.trim().to_string(),
         smtp_port: std::env::var("XKCD_SMTP_PORT")
             .unwrap_or_else(|_| "587".into())
             .parse()
@@ -70,6 +70,9 @@ pub fn validate_config(config: &Config) -> anyhow::Result<()> {
         bail!(
             "XKCD_SMTP_SERVER must be ASCII (use punycode for internationalized domains; IDNA normalization is disabled)"
         );
+    }
+    if config.smtp_server.chars().any(|c| c.is_ascii_control()) {
+        bail!("XKCD_SMTP_SERVER must not contain control characters");
     }
     Ok(())
 }
@@ -185,9 +188,25 @@ mod tests {
     }
 
     #[test]
+    fn config_smtp_server_control_char_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp.example\n.com".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
     fn config_smtp_server_ascii_ok() {
         let mut cfg = make_config();
         cfg.smtp_server = "smtp.example.com".to_string();
         assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn config_smtp_server_whitespace_trimmed_at_load() {
+        // load_config trims smtp_server; validate_config sees the trimmed value
+        let mut cfg = make_config();
+        cfg.smtp_server = " smtp.example.com ".trim().to_string();
+        assert!(validate_config(&cfg).is_ok());
+        assert_eq!(cfg.smtp_server, "smtp.example.com");
     }
 }
