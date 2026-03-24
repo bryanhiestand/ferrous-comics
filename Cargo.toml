@@ -12,7 +12,10 @@ env_logger = { version = "0.11", default-features = false, features = ["auto-col
 lettre     = { version = "0.11", default-features = false, features = ["smtp-transport", "rustls-tls", "builder", "hostname"] }
 log        = "0.4"
 ureq       = { version = "2", default-features = false, features = ["tls", "json"] }
-idna_adapter = "=1.0.0"                                    # stub out IDNA; xkcd.com is ASCII-only
+idna_adapter = "=1.0.0"                                    # stub out IDNA Unicode normalization (via
+                                                           # url/idna used by both ureq and lettre);
+                                                           # all hostnames must be ASCII/punycode —
+                                                           # validated at startup for XKCD_SMTP_SERVER
 serde      = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 redb       = "2"

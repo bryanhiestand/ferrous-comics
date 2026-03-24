@@ -63,6 +63,11 @@ pub fn validate_config(config: &Config) -> anyhow::Result<()> {
     if config.smtp_username.is_some() != config.smtp_password.is_some() {
         bail!("XKCD_SMTP_USERNAME and XKCD_SMTP_PASSWORD must both be set or both be unset");
     }
+    if !config.smtp_server.is_ascii() {
+        bail!(
+            "XKCD_SMTP_SERVER must be an ASCII hostname (use punycode for internationalized domains; IDNA normalization is disabled)"
+        );
+    }
     Ok(())
 }
 
@@ -160,5 +165,19 @@ mod tests {
         let mut cfg = make_config();
         cfg.mail_to = vec![];
         assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_non_ascii_errors() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp.例え.jp".to_string();
+        assert!(validate_config(&cfg).is_err());
+    }
+
+    #[test]
+    fn config_smtp_server_ascii_ok() {
+        let mut cfg = make_config();
+        cfg.smtp_server = "smtp.example.com".to_string();
+        assert!(validate_config(&cfg).is_ok());
     }
 }
