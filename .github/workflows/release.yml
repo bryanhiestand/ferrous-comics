@@ -63,9 +63,7 @@ jobs:
           cp target/aarch64-unknown-linux-gnu/release/ferrous-comics ferrous-comics-linux-arm64
           cp target/aarch64-apple-darwin/release/ferrous-comics ferrous-comics-darwin-arm64
 
-      - uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe  # v2.6.1
-        with:
-          files: |
-            ferrous-comics-linux-amd64
-            ferrous-comics-linux-arm64
-            ferrous-comics-darwin-arm64
+      - name: Upload release assets
+        run: gh release upload --clobber "${{ github.ref_name }}" ferrous-comics-linux-amd64 ferrous-comics-linux-arm64 ferrous-comics-darwin-arm64
+        env:
+          GH_TOKEN: ${{ github.token }}
