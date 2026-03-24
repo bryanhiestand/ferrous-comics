@@ -17,10 +17,10 @@ fn main() {
     // HEAD contains "ref: refs/heads/<branch>" for a normal branch, or a bare
     // hash for a detached HEAD. In the latter case .git/HEAD itself changes on
     // each commit so no additional path is needed.
-    if let Ok(head) = std::fs::read_to_string(".git/HEAD") {
-        if let Some(refname) = head.strip_prefix("ref: ") {
-            println!("cargo:rerun-if-changed=.git/{}", refname.trim());
-        }
+    if let Ok(head) = std::fs::read_to_string(".git/HEAD")
+        && let Some(refname) = head.strip_prefix("ref: ")
+    {
+        println!("cargo:rerun-if-changed=.git/{}", refname.trim());
     }
 
     // Rerun when refs are repacked (git gc, fetch with pack, etc.)
