@@ -17,9 +17,23 @@ use http::{download_image, fetch_comic, fetch_comic_by_num, Comic, XKCD_BASE_URL
 const LEGACY_HISTORY_FILE: &str = "xkcd_history.txt";
 const COMIC_DIR: &str = "comics";
 
+fn cmd_version() {
+    println!(
+        "{} {} ({})",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        env!("GIT_HASH"),
+    );
+}
+
 fn main() -> anyhow::Result<()> {
     let _ = dotenvy::dotenv();
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    if std::env::args().nth(1).as_deref() == Some("version") {
+        cmd_version();
+        return Ok(());
+    }
 
     let db_path = std::env::var("XKCD_DB_PATH")
         .map(PathBuf::from)

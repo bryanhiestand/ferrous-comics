@@ -63,6 +63,13 @@ Fields:
 | `email_sent` | Whether the email was successfully sent |
 | `email_sent_utc` | Unix timestamp of the successful send, or `null` |
 
+### Check the version
+
+```bash
+ferrous-comics version
+# → ferrous-comics 1.3.0 (abc1234)
+```
+
 ### Inspect the database
 
 Dump all records as newline-delimited JSON:
