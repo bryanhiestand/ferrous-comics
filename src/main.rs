@@ -12,7 +12,7 @@ use db::{
     record_email_success, record_first_seen,
 };
 use email::send_email;
-use http::{download_image, fetch_comic, fetch_comic_by_num, Comic, XKCD_BASE_URL};
+use http::{Comic, XKCD_BASE_URL, download_image, fetch_comic, fetch_comic_by_num};
 
 const LEGACY_HISTORY_FILE: &str = "xkcd_history.txt";
 const COMIC_DIR: &str = "comics";
@@ -151,7 +151,7 @@ fn main() -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use db::{ComicRecord, COMICS_TABLE};
+    use db::{COMICS_TABLE, ComicRecord};
     use http::make_comic;
     use redb::ReadableTable;
 

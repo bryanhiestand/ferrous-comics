@@ -2,13 +2,13 @@ use std::path::Path;
 
 use anyhow::Context;
 use lettre::{
-    message::{header::ContentType, Attachment, MultiPart, SinglePart},
-    transport::smtp::authentication::Credentials,
     Message, SmtpTransport, Transport,
+    message::{Attachment, MultiPart, SinglePart, header::ContentType},
+    transport::smtp::authentication::Credentials,
 };
 
 use crate::config::Config;
-use crate::http::{local_filename, Comic};
+use crate::http::{Comic, local_filename};
 
 pub(crate) fn escape_html(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
