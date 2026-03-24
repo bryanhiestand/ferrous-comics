@@ -1,0 +1,9 @@
+use cargo-bloat to find more areas to optimize size and compile times
+
+I think we can disable idna
+[dependencies]
+# Disable internationalized domain name support.
+idna_adapter = "=1.0.0"
+
+
+opt level z and panic-abort seem questionable, maybe add them back and see the impact?
