@@ -41,12 +41,8 @@ pub fn load_config() -> anyhow::Result<Config> {
             .parse()
             .context("XKCD_SMTP_PORT must be a number")?,
         smtp_starttls: env_bool("XKCD_SMTP_STARTTLS", true),
-        smtp_username: std::env::var("XKCD_SMTP_USERNAME")
-            .ok()
-            .map(|v| v.trim().to_string()),
-        smtp_password: std::env::var("XKCD_SMTP_PASSWORD")
-            .ok()
-            .map(|v| v.trim().to_string()),
+        smtp_username: std::env::var("XKCD_SMTP_USERNAME").ok(),
+        smtp_password: std::env::var("XKCD_SMTP_PASSWORD").ok(),
         backfill_limit: std::env::var("XKCD_BACKFILL_LIMIT")
             .unwrap_or_else(|_| "5".into())
             .parse()
