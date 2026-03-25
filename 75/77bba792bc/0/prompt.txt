@@ -1,0 +1,28 @@
+Co-pilot found more issues in review, despite me asking you to review this yourself. Use an adversarial review subagent if needed. Check and double-check your work before pushing your commit.
+
+---
+
+No follow-ups, address them now
+
+---
+
+thoughts on this?
+
+Trimming XKCD_SMTP_USERNAME/XKCD_SMTP_PASSWORD changes credential semantics (it becomes impossible to use leading/trailing spaces in either value) and can also turn an all-whitespace env var into Some(""), which then passes validation and results in an attempted auth with empty credentials. Consider preserving these values verbatim, or if whitespace should be ignored, treat a post-trim empty string as unset (or surface a clear validation error).
+
+---
+
+update PR description to match all net changes from the PR. Do not add things we changed from one commit to anotehr in the PR (these don't matter for  commit message)
+
+---
+
+Cut release v1.4.2, link to the PR in the release notes
+
+---
+
+Can we add timestamps to loglines? This is less than helpful
+
+[INFO  ferrous_comics] comic #3223 already seen, exiting
+[INFO  ferrous_comics] comic #3223 already seen, exiting
+[INFO  ferrous_comics] comic #3223 already seen, exiting
+[INFO  ferrous_comics] comic #3223 already seen, exiting
