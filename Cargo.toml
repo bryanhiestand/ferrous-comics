@@ -24,6 +24,9 @@ redb       = "2"
 tempfile = "3"
 mockito  = "1"
 
+[package.metadata.cargo-machete]
+ignored = ["idna_adapter"]  # dependency-override stub; not directly used in source
+
 [profile.release]
 strip         = true    # remove debug symbols (~50-70% size reduction)
 lto           = "thin"  # cross-crate dead-code elimination without fat-LTO compile cost
