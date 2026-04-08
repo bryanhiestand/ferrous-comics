@@ -1,0 +1,17 @@
+Should we run this on a cron or anything to help ensure packages are up to date and we can still build?
+
+---
+
+Should we run this on a cron or anything to help ensure packages are up to date and we can still build?
+
+---
+
+Should we run this on a cron or anything to help ensure packages are up to date and we can still build?
+
+---
+
+Should we run this on a cron or anything to help ensure packages are up to date and we can still build?
+
+---
+
+Yes. Then review copilot's feedback on the PR
