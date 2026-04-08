@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "8d747525ef62",
+  "session_id": "8d244825-d5d8-44fe-bf50-51555f8df975",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-08T14:53:30.014Z",
+  "branch": "ci/add-audit-machete-doc",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".github/workflows/ci.yml"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "429971021134",
+  "checkpoint_transcript_start": 121,
+  "transcript_lines_at_start": 121,
+  "token_usage": {
+    "input_tokens": 12,
+    "cache_creation_tokens": 3607,
+    "cache_read_tokens": 288833,
+    "output_tokens": 1464,
+    "api_call_count": 8
+  },
+  "session_metrics": {
+    "turn_count": 5
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-08T14:53:29.932319Z",
+    "agent_lines": 3,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3,
+    "agent_percentage": 100
+  }
+}

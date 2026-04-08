@@ -1,0 +1,5 @@
+Before we do that, does pinning the version mean we no longer catch new vulnerabilities?
+
+---
+
+okay
