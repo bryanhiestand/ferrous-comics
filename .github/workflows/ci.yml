@@ -19,7 +19,7 @@ jobs:
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
       - uses: cargo-bins/cargo-binstall@6ed12bbaae779f3fd3ba1477bc9a61a2535a3bb2  # main
       - name: Install CI tools
-        run: cargo binstall --no-confirm cargo-audit@0.22.1 cargo-machete@0.9.1
+        run: cargo binstall --no-confirm --force cargo-audit@0.22.1 cargo-machete@0.9.1
       - run: cargo fmt --check
       - run: cargo clippy -- -D warnings
       - run: cargo test
