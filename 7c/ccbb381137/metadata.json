@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "7cccbb381137",
+  "strategy": "manual-commit",
+  "branch": "ci/add-audit-machete-doc",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".github/workflows/ci.yml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7c/ccbb381137/0/metadata.json",
+      "transcript": "/7c/ccbb381137/0/full.jsonl",
+      "content_hash": "/7c/ccbb381137/0/content_hash.txt",
+      "prompt": "/7c/ccbb381137/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 23,
+    "cache_creation_tokens": 21412,
+    "cache_read_tokens": 410505,
+    "output_tokens": 6014,
+    "api_call_count": 17
+  }
+}
