@@ -5,4 +5,7 @@ xkcd_history.txt
 xkcd_history.txt.migrated
 assets/social-preview.png
 xkcd_comics.db
+
+# Local development settings
 .claude/settings.local.json
+.vscode

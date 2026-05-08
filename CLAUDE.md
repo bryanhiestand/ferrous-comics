@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repo.
 
 ## Commands
 
@@ -13,13 +13,13 @@ cargo fmt --check     # check formatting without writing
 cargo test            # run tests
 ```
 
-Always run `cargo fmt`, `cargo clippy -- -D warnings`, and `cargo test` before committing.
+Run `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` before committing.
 
-When changing any function's behavior or signature, update the corresponding tests in the `#[cfg(test)]` module. When adding new functions, add tests covering the happy path, error cases, and edge cases.
+When changing function behavior or signature, update tests in `#[cfg(test)]` module. New functions need tests: happy path, error cases, edge cases.
 
 ## Architecture
 
-Single-binary Rust CLI split across five source files:
+Single-binary Rust CLI, five source files:
 
 | File | Contents |
 |---|---|
@@ -31,33 +31,33 @@ Single-binary Rust CLI split across five source files:
 
 **Flow:** `main()` → `load_config` → `fetch_comic` → `last_seen_num` → backfill candidates → for each: `is_seen` → `record_first_seen` → optionally `download_image` → `send_email` → `record_email_success`
 
-**Config** is loaded from a `.env` file via `dotenvy`, all env vars prefixed `XKCD_`. `env_bool` trims whitespace before matching. Username and password must both be set or both unset — validated at startup.
+**Config** loaded from `.env` via `dotenvy`, all vars prefixed `XKCD_`. `env_bool` trims whitespace before matching. Username and password must both be set or both unset — validated at startup.
 
-**History** is stored in `xkcd_comics.db` (redb embedded database). On first run, a legacy `xkcd_history.txt` is automatically migrated and renamed to `xkcd_history.txt.migrated`.
+**History** stored in `xkcd_comics.db` (redb). First run auto-migrates legacy `xkcd_history.txt`, renames to `xkcd_history.txt.migrated`.
 
-**Email** uses `lettre` with STARTTLS (`smtp_starttls=true`) or direct TLS (`false`). The body is always `MultiPart::alternative` (plain + HTML); when `mail_attachment=true` it's wrapped in `MultiPart::mixed`. HTML values are run through `escape_html()` before interpolation.
+**Email** uses `lettre` with STARTTLS (`smtp_starttls=true`) or direct TLS (`false`). Body always `MultiPart::alternative` (plain + HTML); when `mail_attachment=true` wrapped in `MultiPart::mixed`. HTML values run through `escape_html()` before interpolation.
 
-**TLS**: `lettre` uses `rustls-tls` (not `native-tls`), keeping the binary free of C/OpenSSL dependencies — required for cross-compilation in CI.
+**TLS**: `lettre` uses `rustls-tls` (not `native-tls`), no C/OpenSSL deps — required for cross-compilation in CI.
 
 ## Conventions
 
 ### Error handling
 
-Every fallible operation gets `.context("descriptive message")` chained on it so errors surfaced in logs always identify the operation that failed, not just the raw library error. Use `bail!` for validation failures with a user-readable message. No custom error types — `anyhow` throughout.
+Every fallible op gets `.context("descriptive message")` so errors identify the failed operation, not just raw library error. Use `bail!` for validation failures with user-readable message. No custom error types — `anyhow` throughout.
 
 ### Logging
 
 - `log::info!` — normal flow milestones (comic fetched, email sent, migration done, already-seen skip)
 - `log::warn!` — recoverable per-comic failures that skip and continue (download failed, email failed, transient fetch error)
-- `log::debug!` — verbose detail useful when debugging (`RUST_LOG=debug`)
+- `log::debug!` — verbose detail for debugging (`RUST_LOG=debug`)
 
 ### Safety invariant: mark-seen before email
 
-`record_first_seen()` is called immediately after `is_seen()` returns false, **before** download or email. This prevents duplicate emails when the process crashes mid-run and cron retries — the next run sees the comic as already recorded and skips it. `record_email_success()` then sets `email_sent=true` as a final confirmation. Do not reorder these steps.
+`record_first_seen()` called immediately after `is_seen()` returns false, **before** download or email. Prevents duplicate emails when process crashes mid-run and cron retries — next run sees comic as recorded and skips. `record_email_success()` sets `email_sent=true` as final confirmation. Do not reorder.
 
 ### HTTP status codes
 
-In `fetch_comic_by_num()`, a 404 means the comic intentionally doesn't exist (e.g. xkcd #404) and returns `Ok(None)` — the caller marks it seen to advance past it. Any other non-2xx status is an `Err` (transient failure — skip and let cron retry). Never treat 404 as a transient error.
+In `fetch_comic_by_num()`, 404 = comic intentionally doesn't exist (e.g. xkcd #404), returns `Ok(None)` — caller marks it seen to advance past it. Any other non-2xx = `Err` (transient — skip, let cron retry). Never treat 404 as transient.
 
 ### Testing
 
@@ -68,7 +68,7 @@ In `fetch_comic_by_num()`, a 404 means the comic intentionally doesn't exist (e.
 
 ## Branching
 
-Use type prefixes with kebab-case descriptions (2–4 words):
+Type prefixes, kebab-case descriptions (2–4 words):
 
 | Prefix | Use for |
 |---|---|
@@ -79,14 +79,14 @@ Use type prefixes with kebab-case descriptions (2–4 words):
 | `chore/` | Maintenance: deps, docs, tooling |
 | `release/vX.Y.Z` | Release branches |
 
-**Never commit directly to `main`** — always use a branch + PR unless explicitly told otherwise.
+**Never commit directly to `main`** — always branch + PR unless told otherwise.
 
 ## Opening PRs
 
-Before opening any pull request, launch a subagent to conduct an adversarial review of the changes. The subagent should act as a skeptical reviewer and look for bugs, security issues, edge cases, and correctness problems — not style preferences. Address any real issues before pushing and opening the PR.
+Before opening any PR, launch subagent for adversarial review: skeptical reviewer, look for bugs, security issues, edge cases, correctness problems — not style. Fix real issues before pushing.
 
 ## CI / Release
 
-- **CI** (`.github/workflows/ci.yml`): runs fmt, clippy, test on every push/PR.
-- **Release** (`.github/workflows/release.yml`): triggered by `v*` tags. Builds `linux-amd64`, `linux-arm64`, `darwin-arm64` from a single `ubuntu-latest` runner using `cargo-zigbuild` + zig. Attaches binaries to the GitHub release.
-- All GitHub Actions references are pinned to commit SHAs.
+- **CI** (`.github/workflows/ci.yml`): fmt, clippy, test on every push/PR.
+- **Release** (`.github/workflows/release.yml`): triggered by `v*` tags. Builds `linux-amd64`, `linux-arm64`, `darwin-arm64` from single `ubuntu-latest` runner using `cargo-zigbuild` + zig. Attaches binaries to GitHub release.
+- All GitHub Actions refs pinned to commit SHAs.
