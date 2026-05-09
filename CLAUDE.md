@@ -81,6 +81,8 @@ Type prefixes, kebab-case descriptions (2–4 words):
 
 **Never commit directly to `main`** — always branch + PR unless told otherwise.
 
+PR titles MUST follow Conventional Commits (`feat:`, `fix:`, `refactor:`, `ci:`, `chore:`, `docs:`, `test:`, `perf:`, `build:`) regardless of branch prefix — enforced by `pr-title.yml`. Squash-merge only, so the PR title becomes the commit subject release-plz parses for version bumps.
+
 ## Opening PRs
 
 Before opening any PR, launch subagent for adversarial review: skeptical reviewer, look for bugs, security issues, edge cases, correctness problems — not style. Fix real issues before pushing.
@@ -88,5 +90,9 @@ Before opening any PR, launch subagent for adversarial review: skeptical reviewe
 ## CI / Release
 
 - **CI** (`.github/workflows/ci.yml`): fmt, clippy, test on every push/PR.
-- **Release** (`.github/workflows/release.yml`): triggered by `v*` tags. Builds `linux-amd64`, `linux-arm64`, `darwin-arm64` from single `ubuntu-latest` runner using `cargo-zigbuild` + zig. Attaches binaries to GitHub release.
+- **PR title lint** (`.github/workflows/pr-title.yml`): enforces Conventional Commits on PR titles via `amannn/action-semantic-pull-request`.
+- **release-plz** (`.github/workflows/release-plz.yml`): on push to `main`, opens a `chore: release vX.Y.Z` PR with bumped `Cargo.toml`/`Cargo.lock` and appended `CHANGELOG.md`. Merging the PR creates tag `vX.Y.Z` and publishes a GitHub Release.
+- **Release** (`.github/workflows/release.yml`): triggered by `release: published`. Builds `linux-amd64`, `linux-arm64`, `darwin-arm64` from single `ubuntu-latest` runner using `cargo-zigbuild` + zig. Attaches binaries to the GitHub Release.
+- `cliff.toml` is the single source of truth for changelog format — used by both the one-shot historical backfill (`git-cliff -o CHANGELOG.md`) and release-plz going forward.
+- Do not hand-edit `Cargo.toml` `version`, `Cargo.lock`, or `CHANGELOG.md` — release-plz owns all three.
 - All GitHub Actions refs pinned to commit SHAs.

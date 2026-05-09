@@ -1,0 +1,9 @@
+[workspace]
+publish = false
+semver_check = false
+git_release_enable = true
+git_tag_enable = true
+changelog_update = true
+changelog_path = "./CHANGELOG.md"
+changelog_config = "./cliff.toml"
+release_always = false
