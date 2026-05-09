@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 
 
-## [unreleased]
+## [1.4.4] - 2026-05-09
 
 ### Bug Fixes
 - Clear RUSTSEC advisories (rustls-webpki, rand) (#30)
