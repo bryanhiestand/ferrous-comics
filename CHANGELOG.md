@@ -8,9 +8,6 @@ All notable changes to this project are documented here.
 ### Bug Fixes
 - Clear RUSTSEC advisories (rustls-webpki, rand) (#30)
 
-### CI
-- Add cargo-audit, cargo-machete, cargo-doc, and job timeouts (#28)
-
 ## [1.4.3] - 2026-03-25
 
 ### Other
