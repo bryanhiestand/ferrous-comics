@@ -34,6 +34,7 @@ jobs:
     name: release-plz PR
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: release-plz-release
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
