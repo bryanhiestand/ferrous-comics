@@ -7,3 +7,4 @@ changelog_update = true
 changelog_path = "./CHANGELOG.md"
 changelog_config = "./cliff.toml"
 release_always = false
+release_commits = "^(feat|fix|perf|refactor)[:(]"
