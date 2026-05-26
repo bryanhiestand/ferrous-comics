@@ -72,4 +72,4 @@ jobs:
       - name: Upload release assets
         run: gh release upload --clobber "${{ github.event.release.tag_name }}" ferrous-comics-linux-amd64 ferrous-comics-linux-arm64 ferrous-comics-darwin-arm64
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
