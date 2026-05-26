@@ -6,35 +6,12 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  release-plz-release:
-    name: release-plz release
+  release:
+    name: release
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    concurrency:
-      group: release-plz-release-${{ github.ref }}
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9  # stable
-        with:
-          toolchain: stable
-      - uses: release-plz/action@1528104d2ca23787631a1c1f022abb64b34c1e11  # v0.5.128
-        with:
-          command: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
-
-  release-plz-pr:
-    name: release-plz PR
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: release-plz-release
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
@@ -42,12 +19,24 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9  # stable
         with:
           toolchain: stable
-      - uses: release-plz/action@1528104d2ca23787631a1c1f022abb64b34c1e11  # v0.5.128
+      - uses: taiki-e/install-action@f23382d582832e41d5eb4fff2bddb06bc5adf8d3
         with:
-          command: release-pr
+          tool: release-plz
+      - name: Bump version and changelog
+        run: |
+          release-plz update
+          if ! git diff --quiet; then
+            version=$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version')
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Cargo.toml Cargo.lock CHANGELOG.md
+            git commit -m "chore: release v${version}"
+            git push
+          fi
+      - name: Tag and release
+        run: release-plz release --git-token "${GITHUB_TOKEN}"
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
