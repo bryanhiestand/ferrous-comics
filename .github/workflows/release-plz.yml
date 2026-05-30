@@ -11,7 +11,7 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
@@ -22,21 +22,96 @@ jobs:
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9  # stable
         with:
           toolchain: stable
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,aarch64-apple-darwin
       - uses: taiki-e/install-action@f23382d582832e41d5eb4fff2bddb06bc5adf8d3
         with:
-          tool: release-plz
+          tool: release-plz@0.3.158
+
       - name: Bump version and changelog
+        id: bump
         run: |
           release-plz update
-          if ! git diff --quiet; then
+          if git diff --quiet; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
             version=$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version')
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add Cargo.toml Cargo.lock CHANGELOG.md
-            git commit -m "chore: release v${version}"
-            git push
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
           fi
-      - name: Tag and release
-        run: release-plz release --git-token "${GITHUB_TOKEN}"
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+        if: steps.bump.outputs.release == 'true'
+
+      - name: Cache cargo-zigbuild
+        if: steps.bump.outputs.release == 'true'
+        id: cache-zigbuild
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
+        with:
+          path: ~/.cargo/bin/cargo-zigbuild
+          key: cargo-zigbuild-0.22.1-${{ runner.os }}
+
+      - name: Cache zig pip download
+        if: steps.bump.outputs.release == 'true'
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
+        with:
+          path: ~/.cache/pip
+          key: ziglang-pip-0.15.2
+
+      - name: Install zig
+        if: steps.bump.outputs.release == 'true'
+        run: pip3 install ziglang==0.15.2
+
+      - name: Install cargo-zigbuild
+        if: steps.bump.outputs.release == 'true' && steps.cache-zigbuild.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-zigbuild --version 0.22.1
+
+      - name: Build linux-amd64
+        if: steps.bump.outputs.release == 'true'
+        run: cargo zigbuild --release --target x86_64-unknown-linux-gnu
+
+      - name: Build linux-arm64
+        if: steps.bump.outputs.release == 'true'
+        run: cargo zigbuild --release --target aarch64-unknown-linux-gnu
+
+      - name: Build darwin-arm64
+        if: steps.bump.outputs.release == 'true'
+        run: cargo zigbuild --release --target aarch64-apple-darwin
+
+      - name: Collect binaries
+        if: steps.bump.outputs.release == 'true'
+        run: |
+          cp target/x86_64-unknown-linux-gnu/release/ferrous-comics ferrous-comics-linux-amd64
+          cp target/aarch64-unknown-linux-gnu/release/ferrous-comics ferrous-comics-linux-arm64
+          cp target/aarch64-apple-darwin/release/ferrous-comics ferrous-comics-darwin-arm64
+
+      - name: Commit, tag, and release
+        if: steps.bump.outputs.release == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml Cargo.lock CHANGELOG.md
+          # Fail if release-plz modified anything else (would otherwise be silently dropped)
+          unexpected=$(git diff --name-only)
+          if [ -n "$unexpected" ]; then
+            echo "release-plz modified unexpected tracked files:" >&2
+            echo "$unexpected" >&2
+            exit 1
+          fi
+          git commit -m "chore: release v${VERSION}"
+          git push
+          awk -v header="## [${VERSION}]" '
+            index($0, header) == 1 { flag=1; next }
+            /^## \[/ { flag=0 }
+            flag
+          ' CHANGELOG.md > release-notes.md
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes-file release-notes.md \
+            --target "$(git rev-parse HEAD)" \
+            ferrous-comics-linux-amd64 \
+            ferrous-comics-linux-arm64 \
+            ferrous-comics-darwin-arm64

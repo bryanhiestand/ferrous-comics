@@ -91,8 +91,7 @@ Before opening any PR, launch subagent for adversarial review: skeptical reviewe
 
 - **CI** (`.github/workflows/ci.yml`): fmt, clippy, test on every push/PR.
 - **PR title lint** (`.github/workflows/pr-title.yml`): enforces Conventional Commits on PR titles via `amannn/action-semantic-pull-request`.
-- **release-plz** (`.github/workflows/release-plz.yml`): on push to `main`, runs `release-plz update` (bumps `Cargo.toml`/`Cargo.lock`, appends `CHANGELOG.md`), commits directly to `main` as `chore: release vX.Y.Z`, then runs `release-plz release` to create tag `vX.Y.Z` and GitHub Release. No intermediate PR — single-step.
-- **Release** (`.github/workflows/release.yml`): triggered by `release: published`. Builds `linux-amd64`, `linux-arm64`, `darwin-arm64` from single `ubuntu-latest` runner using `cargo-zigbuild` + zig. Attaches binaries to the GitHub Release.
+- **release-plz** (`.github/workflows/release-plz.yml`): on push to `main`, runs `release-plz update` to bump `Cargo.toml`/`Cargo.lock` and append `CHANGELOG.md`. If a bump is warranted: builds `linux-amd64`, `linux-arm64`, `darwin-arm64` binaries via `cargo-zigbuild` + zig, then atomically commits `chore: release vX.Y.Z`, pushes, and creates tag + GitHub Release with binaries attached via `gh release create`. Build failure aborts the release — no partial state.
 - `cliff.toml` is the single source of truth for changelog format — used by both the one-shot historical backfill (`git-cliff -o CHANGELOG.md`) and release-plz going forward.
 - Do not hand-edit `Cargo.toml` `version`, `Cargo.lock`, or `CHANGELOG.md` — release-plz owns all three.
 - All GitHub Actions refs pinned to commit SHAs.
