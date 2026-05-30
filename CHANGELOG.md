@@ -3,14 +3,6 @@
 All notable changes to this project are documented here.
 
 
-## [1.4.5] - 2026-05-30
-
-### Bug Fixes
-- Upgrade lettre to 0.11.22 (RUSTSEC-2026-0141) ([#35](https://github.com/bryanhiestand/ferrous-comics/pull/35))
-- Re-release pending lettre upgrade as v1.4.5 ([#43](https://github.com/bryanhiestand/ferrous-comics/pull/43))
-- Skip v1.4.5 (tag reserved by deleted immutable release) ([#44](https://github.com/bryanhiestand/ferrous-comics/pull/44))
-
-
 ## [1.4.4] - 2026-05-09
 
 ### Bug Fixes
