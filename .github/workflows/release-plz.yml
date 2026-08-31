@@ -23,7 +23,7 @@ jobs:
         with:
           toolchain: stable
           targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,aarch64-apple-darwin
-      - uses: taiki-e/install-action@f23382d582832e41d5eb4fff2bddb06bc5adf8d3
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d
         with:
           tool: release-plz@0.3.158
 
@@ -39,7 +39,7 @@ jobs:
             echo "version=$version" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
         if: steps.bump.outputs.release == 'true'
 
       - name: Cache cargo-zigbuild
