@@ -4,6 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Pinned to the =1.0.0 no-op stub on purpose to drop ICU4X normalization; see Cargo.toml.
+      - dependency-name: "idna_adapter"
     groups:
       cargo-minor-patch:
         update-types:
