@@ -43,29 +43,34 @@ fn main() -> anyhow::Result<()> {
     let db_path = std::env::var("XKCD_DB_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("xkcd_comics.db"));
-    let db = open_db(&db_path)?;
+    let is_dump = std::env::args().nth(1).as_deref() == Some("dump");
 
-    migrate_history_file(&db, Path::new(LEGACY_HISTORY_FILE))?;
+    // The database is opened and closed inside `run`, so it is not held during the update check.
+    let result = run(&db_path, is_dump);
 
-    if std::env::args().nth(1).as_deref() == Some("dump") {
-        return cmd_dump(&db, &mut std::io::stdout());
-    }
-
-    let config = load_config()?;
-
-    let agent = make_agent();
-
-    let result = process_comics(&config, &db, &agent);
-
-    // Runs even when comic processing failed, so a broken release can be replaced by a fix.
-    if config.auto_update {
+    // Runs after any failure too (DB open, config, comic processing), so a broken release can
+    // be replaced by a fix. Read straight from the environment: config loading may have failed.
+    if !is_dump && config::env_bool("XKCD_AUTO_UPDATE", false) {
         let stamp = PathBuf::from(format!("{}.update-check", db_path.display()));
-        if let Err(e) = update::auto_update(&agent, &stamp) {
+        if let Err(e) = update::auto_update(&make_agent(), &stamp) {
             log::warn!("auto-update failed: {e:#}");
         }
     }
 
     result
+}
+
+fn run(db_path: &Path, is_dump: bool) -> anyhow::Result<()> {
+    let db = open_db(db_path)?;
+
+    migrate_history_file(&db, Path::new(LEGACY_HISTORY_FILE))?;
+
+    if is_dump {
+        return cmd_dump(&db, &mut std::io::stdout());
+    }
+
+    let config = load_config()?;
+    process_comics(&config, &db, &make_agent())
 }
 
 fn make_agent() -> ureq::Agent {

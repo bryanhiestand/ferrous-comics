@@ -82,14 +82,14 @@ ferrous-comics update                 # install the latest release within the cu
 ferrous-comics update --allow-major   # also allow a new major version
 ```
 
-With `XKCD_AUTO_UPDATE=true`, a normal run checks for updates after processing comics, at most once every 24 hours. The check time is tracked in `<XKCD_DB_PATH>.update-check`. New major versions are never installed automatically; they are logged so you can read the changelog and run `update --allow-major` yourself.
+With `XKCD_AUTO_UPDATE=true`, a normal run checks for updates at most once every 24 hours. The check happens after the comics are processed, and also when the run fails, so a broken release can still be replaced by a fixed one. The check time is tracked in `<XKCD_DB_PATH>.update-check`. New major versions are never installed automatically; they are logged so you can read the changelog and run `update --allow-major` yourself.
 
 How an update is installed:
 
 1. The latest release is fetched from the GitHub API over HTTPS.
 2. The binary is verified against the release's `SHA256SUMS` and against the SHA-256 digest GitHub records for the asset.
 3. The new binary is run with `version` to check that it works and reports the expected version.
-4. It is renamed over the current binary, and the previous binary is kept as `<binary>.prev`. To roll back, move `.prev` back into place.
+4. It is renamed over the current binary, and the previous binary is kept as `<binary>.prev`. To roll back, move `.prev` back into place. If the update changed the database format (see the changelog), the previous binary can't read the upgraded database, so restore the database backup as well.
 
 The new version takes effect on the next run. The binary's directory must be writable by the user running it.
 

@@ -199,6 +199,9 @@ pub fn check_and_install(
     })
 }
 
+/// How long the downloaded binary's `version` self-check may take before it is killed.
+const SELF_CHECK_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Writes `bytes` next to `exe`, verifies the new binary runs and reports `expected_version`,
 /// keeps a copy of the current binary at `<exe>.prev`, then atomically renames the new binary
 /// over `exe`. The running process keeps executing the old code; the new version takes effect
@@ -213,39 +216,32 @@ fn install(exe: &Path, bytes: &[u8], expected_version: &str) -> anyhow::Result<(
         .file_name()
         .context("executable path has no file name")?
         .to_string_lossy();
-    let tmp = dir.join(format!(".{file_name}.update-{}", std::process::id()));
+    let pid = std::process::id();
+    let tmp = dir.join(format!(".{file_name}.update-{pid}"));
+    let prev = PathBuf::from(format!("{}.prev", exe.display()));
+    let prev_tmp = dir.join(format!(".{file_name}.prev-{pid}"));
+    let mode = std::fs::metadata(exe)
+        .with_context(|| format!("failed to stat {}", exe.display()))?
+        .permissions();
 
     let result = (|| {
-        let mut f = std::fs::File::create(&tmp)
+        // create_new: never follow a pre-existing file or symlink at the temp path.
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
             .with_context(|| format!("failed to create {}", tmp.display()))?;
         f.write_all(bytes).context("failed to write new binary")?;
         f.sync_all().context("failed to sync new binary")?;
         drop(f);
-        set_executable(&tmp)?;
+        set_executable(&tmp, mode.clone())?;
 
-        // A concurrent fork in another thread can briefly hold our just-closed write fd,
-        // making exec fail with ETXTBSY; retry a few times.
-        let mut attempt = 0;
-        let out = loop {
-            match std::process::Command::new(&tmp).arg("version").output() {
-                Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 10 => {
-                    attempt += 1;
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-                r => break r.context("failed to run downloaded binary")?,
-            }
-        };
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        let reported = stdout.split_whitespace().nth(1).unwrap_or_default();
-        if !out.status.success() || reported != expected_version {
-            bail!(
-                "downloaded binary failed self-check (exit {}, reported version {reported:?}, expected {expected_version})",
-                out.status
-            );
-        }
+        self_check(&tmp, expected_version, SELF_CHECK_TIMEOUT)?;
 
-        let prev = PathBuf::from(format!("{}.prev", exe.display()));
-        std::fs::copy(exe, &prev)
+        // Back up via temp + rename so a failed copy never clobbers an existing good `.prev`.
+        std::fs::copy(exe, &prev_tmp)
+            .with_context(|| format!("failed to back up current binary to {}", prev.display()))?;
+        std::fs::rename(&prev_tmp, &prev)
             .with_context(|| format!("failed to back up current binary to {}", prev.display()))?;
         std::fs::rename(&tmp, exe)
             .with_context(|| format!("failed to replace {}", exe.display()))?;
@@ -254,19 +250,78 @@ fn install(exe: &Path, bytes: &[u8], expected_version: &str) -> anyhow::Result<(
 
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
+        let _ = std::fs::remove_file(&prev_tmp);
     }
     result
 }
 
+/// Runs `<bin> version` and checks it exits successfully within `timeout` and reports
+/// `expected_version`. A binary that hangs is killed rather than blocking the caller forever.
+fn self_check(bin: &Path, expected_version: &str, timeout: Duration) -> anyhow::Result<()> {
+    use std::process::{Command, Stdio};
+
+    // A concurrent fork in another thread can briefly hold our just-closed write fd,
+    // making exec fail with ETXTBSY; retry a few times.
+    let mut attempt = 0;
+    let mut child = loop {
+        let spawned = Command::new(bin)
+            .arg("version")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn();
+        match spawned {
+            Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 10 => {
+                attempt += 1;
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            r => break r.context("failed to run downloaded binary")?,
+        }
+    };
+
+    let deadline = std::time::Instant::now() + timeout;
+    let status = loop {
+        if let Some(status) = child
+            .try_wait()
+            .context("failed to wait for downloaded binary")?
+        {
+            break status;
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            bail!(
+                "downloaded binary failed self-check: `version` did not finish within {timeout:?}"
+            );
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+
+    let mut stdout = String::new();
+    if let Some(mut out) = child.stdout.take() {
+        out.read_to_string(&mut stdout)
+            .context("failed to read downloaded binary output")?;
+    }
+    let reported = stdout.split_whitespace().nth(1).unwrap_or_default();
+    if !status.success() || reported != expected_version {
+        bail!(
+            "downloaded binary failed self-check (exit {status}, reported version {reported:?}, expected {expected_version})"
+        );
+    }
+    Ok(())
+}
+
+/// Gives the new binary the old binary's permissions, making sure the owner can execute it.
 #[cfg(unix)]
-fn set_executable(path: &Path) -> anyhow::Result<()> {
+fn set_executable(path: &Path, perms: std::fs::Permissions) -> anyhow::Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
+    let mode = perms.mode() | 0o100;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
         .context("failed to mark new binary executable")
 }
 
 #[cfg(not(unix))]
-fn set_executable(_path: &Path) -> anyhow::Result<()> {
+fn set_executable(_path: &Path, _perms: std::fs::Permissions) -> anyhow::Result<()> {
     bail!("self-update is only supported on Unix")
 }
 
@@ -420,7 +475,7 @@ mod tests {
         sums_hash: Option<&str>,
         digest: Option<&str>,
     ) {
-        let name = asset_name().expect("tests run on a supported platform");
+        let name = asset_name().unwrap_or("ferrous-comics-unsupported-platform");
         let base = f.server.url();
         let mut bin_asset = serde_json::json!({
             "name": name, "browser_download_url": format!("{base}/dl/bin")
@@ -468,6 +523,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn installs_verified_minor_update_and_keeps_prev() {
+        if asset_name().is_none() {
+            return; // no release asset for this platform
+        }
         let mut f = fixture();
         let bin = fake_binary("1.6.0");
         mock_release(&mut f, "v1.6.0", &bin, Some(&sha256_hex(&bin)));
@@ -496,6 +554,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn installs_major_with_opt_in() {
+        if asset_name().is_none() {
+            return; // no release asset for this platform
+        }
         let mut f = fixture();
         let bin = fake_binary("2.0.0");
         mock_release(&mut f, "v2.0.0", &bin, Some(&sha256_hex(&bin)));
@@ -506,6 +567,9 @@ mod tests {
 
     #[test]
     fn rejects_checksum_mismatch() {
+        if asset_name().is_none() {
+            return; // no release asset for this platform
+        }
         let mut f = fixture();
         let bin = fake_binary("1.6.0");
         mock_release(&mut f, "v1.6.0", &bin, Some(&sha256_hex(b"something else")));
@@ -516,6 +580,9 @@ mod tests {
 
     #[test]
     fn rejects_github_digest_mismatch() {
+        if asset_name().is_none() {
+            return; // no release asset for this platform
+        }
         let mut f = fixture();
         let bin = fake_binary("1.6.0");
         let wrong = format!("sha256:{}", sha256_hex(b"something else"));
@@ -534,6 +601,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn installs_when_github_digest_absent() {
+        if asset_name().is_none() {
+            return; // no release asset for this platform
+        }
         let mut f = fixture();
         let bin = fake_binary("1.6.0");
         mock_release_with_digest(&mut f, "v1.6.0", &bin, Some(&sha256_hex(&bin)), None);
@@ -543,6 +613,9 @@ mod tests {
 
     #[test]
     fn rejects_release_without_checksums() {
+        if asset_name().is_none() {
+            return; // no release asset for this platform
+        }
         let mut f = fixture();
         mock_release(&mut f, "v1.6.0", &fake_binary("1.6.0"), None);
         let err = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap_err();
@@ -553,6 +626,9 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn rejects_binary_reporting_wrong_version() {
+        if asset_name().is_none() {
+            return; // no release asset for this platform
+        }
         let mut f = fixture();
         let bin = fake_binary("1.5.9"); // checksum matches, but it isn't the advertised release
         mock_release(&mut f, "v1.6.0", &bin, Some(&sha256_hex(&bin)));
@@ -578,5 +654,43 @@ mod tests {
         let mut f = fixture();
         mock_release(&mut f, "nightly", b"", None);
         assert!(check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).is_err());
+    }
+
+    // ── self_check ────────────────────────────────────────────────────────────
+
+    #[cfg(unix)]
+    fn script(dir: &Path, body: &str) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let path = dir.join("candidate");
+        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn self_check_accepts_matching_version() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let bin = script(dir.path(), "echo 'ferrous-comics 1.6.0 (abc)'");
+        self_check(&bin, "1.6.0", Duration::from_secs(10)).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn self_check_kills_hanging_binary() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let bin = script(dir.path(), "sleep 30");
+        let start = std::time::Instant::now();
+        let err = self_check(&bin, "1.6.0", Duration::from_millis(300)).unwrap_err();
+        assert!(format!("{err:#}").contains("did not finish"), "{err:#}");
+        assert!(start.elapsed() < Duration::from_secs(10));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn self_check_rejects_nonzero_exit() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let bin = script(dir.path(), "echo 'ferrous-comics 1.6.0 (abc)'; exit 1");
+        assert!(self_check(&bin, "1.6.0", Duration::from_secs(10)).is_err());
     }
 }
