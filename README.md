@@ -63,7 +63,7 @@ Fields:
 | `email_sent` | Whether the email was successfully sent |
 | `email_sent_utc` | Unix timestamp of the successful send, or `null` |
 
-Databases created by older releases (redb 2.x file format) are upgraded automatically on first run. A copy of the original file is kept as `xkcd_comics.db.v2.bak`; keep it if you may need to roll back to an older release, otherwise delete it.
+Databases created by older releases (redb 2.x file format) are upgraded automatically on first run, and a copy of the original file is kept as `xkcd_comics.db.v2.bak`. Older releases can't open the upgraded database. To roll back, restore the backup over `xkcd_comics.db`; any comics recorded after the upgrade will be treated as new and emailed again. Delete the backup once you no longer need to roll back.
 
 ### Check the version
 
