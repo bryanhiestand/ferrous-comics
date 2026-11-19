@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 
 
+## [1.5.0] - 2026-11-19
+
+### Features
+- Upgrade redb to 4.x with automatic database migration ([#58](https://github.com/bryanhiestand/ferrous-comics/pull/58))
+
+
 ## [1.4.7] - 2026-11-19
 
 ### Bug Fixes
