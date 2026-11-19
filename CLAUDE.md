@@ -32,7 +32,7 @@ Single-binary Rust CLI, six source files:
 
 **Flow:** `main()` → `load_config` → `fetch_comic` → `last_seen_num` → backfill candidates → for each: `is_seen` → `record_first_seen` → optionally `download_image` → `send_email` → `record_email_success`. `main()` then closes the DB and, if `XKCD_AUTO_UPDATE`, runs `update::auto_update` (throttled to once per 24h). It runs even if DB open, config load or comic processing failed, so a fixed release can still be installed.
 
-**Self-update** (`update` subcommand / `XKCD_AUTO_UPDATE`): never crosses a major version without `--allow-major` — one-way changes (e.g. DB format migrations) must bump major. Requires the `SHA256SUMS` release asset produced by `release-plz.yml`; verifies hash (SHA256SUMS and GitHub asset digest), runs the new binary's `version` as a self-check with a 30s timeout, keeps `<exe>.prev`, atomic rename.
+**Self-update** (`update` subcommand / `XKCD_AUTO_UPDATE`): never crosses a major version without `--allow-major` — one-way changes (e.g. DB format migrations) must bump major. Requires the `SHA256SUMS` release asset produced by `release-plz.yml`; verifies hash (SHA256SUMS and GitHub asset digest), runs the new binary's `version` as a self-check with a 30s timeout, keeps `<exe>.prev`, atomic rename. Picks the newest stable release *within the current major* from `/releases` (not `/releases/latest`). Serialized via `<exe>.update.lock` with the on-disk version re-checked under the lock. Temp files are created with `create_new` and only self-created ones are cleaned up.
 
 **Config** loaded from `.env` via `dotenvy`, all vars prefixed `XKCD_`. `env_bool` trims whitespace before matching. Username and password must both be set or both unset — validated at startup.
 

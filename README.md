@@ -86,12 +86,12 @@ With `XKCD_AUTO_UPDATE=true`, a normal run checks for updates at most once every
 
 How an update is installed:
 
-1. The latest release is fetched from the GitHub API over HTTPS.
+1. The release list is fetched from the GitHub API over HTTPS, and the newest stable release within the current major version is picked. So 1.x installs keep getting 1.x fixes even after a 2.0 is published.
 2. The binary is verified against the release's `SHA256SUMS` and against the SHA-256 digest GitHub records for the asset.
 3. The new binary is run with `version` to check that it works and reports the expected version.
 4. It is renamed over the current binary, and the previous binary is kept as `<binary>.prev`. To roll back, move `.prev` back into place. If the update changed the database format (see the changelog), the previous binary can't read the upgraded database, so restore the database backup as well.
 
-The new version takes effect on the next run. The binary's directory must be writable by the user running it.
+The new version takes effect on the next run. The binary's directory must be writable by the user running it. A `<binary>.update.lock` file stops overlapping updates. Under the lock, the version of the binary on disk is checked again, so a slower run can't downgrade a binary that another run has just updated.
 
 Trust model: updating trusts whoever can publish releases to this GitHub repository. The checksums catch corrupted or mismatched downloads, but they come from the same release, so they don't protect against a compromised account or release workflow. Leave auto-update off if that matters for your setup.
 

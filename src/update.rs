@@ -29,6 +29,10 @@ pub(crate) const AUTO_CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 6
 #[derive(Debug, Deserialize)]
 struct Release {
     tag_name: String,
+    #[serde(default)]
+    draft: bool,
+    #[serde(default)]
+    prerelease: bool,
     assets: Vec<Asset>,
 }
 
@@ -50,6 +54,8 @@ pub enum Outcome {
         from: String,
         to: String,
     },
+    /// Another update holds the lock; nothing was done.
+    InProgress,
 }
 
 /// Release asset name for the platform this binary was built for.
@@ -123,15 +129,55 @@ fn download(agent: &ureq::Agent, url: &str, what: &str) -> anyhow::Result<Vec<u8
     Ok(buf)
 }
 
-fn fetch_latest(agent: &ureq::Agent, api_base: &str) -> anyhow::Result<Release> {
-    let url = format!("{}/releases/latest", api_base.trim_end_matches('/'));
-    get(agent, &url, "fetching latest release")?
-        .into_json::<Release>()
-        .context("failed to parse latest release JSON")
+/// Most recent releases, newest first. 100 is the API's page maximum and far more history
+/// than is needed to find the newest release in the current major.
+fn fetch_releases(agent: &ureq::Agent, api_base: &str) -> anyhow::Result<Vec<Release>> {
+    let url = format!("{}/releases?per_page=100", api_base.trim_end_matches('/'));
+    get(agent, &url, "listing releases")?
+        .into_json::<Vec<Release>>()
+        .context("failed to parse release list JSON")
 }
 
-/// Checks the latest release and installs it over `exe` if it is newer and within the current
-/// major version (or any newer version when `allow_major` is set).
+type Version = (u64, u64, u64);
+
+fn fmt_version(v: Version) -> String {
+    format!("{}.{}.{}", v.0, v.1, v.2)
+}
+
+/// Picks the release to install: the highest stable release newer than `cur` within the same
+/// major (any major when `allow_major`). Also returns the highest newer release in a *different*
+/// major, if any, so it can be reported. Drafts, pre-releases and unparseable tags are ignored.
+fn select_release(
+    releases: &[Release],
+    cur: Version,
+    allow_major: bool,
+) -> (Option<(&Release, Version)>, Option<Version>) {
+    let newer = releases
+        .iter()
+        .filter(|r| !r.draft && !r.prerelease)
+        .filter_map(|r| parse_version(&r.tag_name).map(|v| (r, v)))
+        .filter(|(_, v)| *v > cur);
+    let mut same_major: Option<(&Release, Version)> = None;
+    let mut any_major: Option<(&Release, Version)> = None;
+    for (r, v) in newer {
+        if v.0 == cur.0 && same_major.is_none_or(|(_, best)| v > best) {
+            same_major = Some((r, v));
+        }
+        if any_major.is_none_or(|(_, best)| v > best) {
+            any_major = Some((r, v));
+        }
+    }
+    let other_major = any_major.map(|(_, v)| v).filter(|v| v.0 != cur.0);
+    let target = if allow_major { any_major } else { same_major };
+    (target, other_major)
+}
+
+/// Installs over `exe` the newest stable release that is newer than `current` and within the
+/// current major version (or the newest overall when `allow_major` is set).
+///
+/// Updates of the same `exe` are serialized with a lock file, and the installed version is
+/// re-read under the lock, so overlapping runs can neither downgrade the binary nor back up an
+/// already-updated binary over `.prev`.
 pub fn check_and_install(
     agent: &ureq::Agent,
     api_base: &str,
@@ -141,17 +187,34 @@ pub fn check_and_install(
 ) -> anyhow::Result<Outcome> {
     let cur = parse_version(current)
         .with_context(|| format!("cannot parse current version {current:?}"))?;
-    let release = fetch_latest(agent, api_base)?;
-    let latest = parse_version(&release.tag_name)
-        .with_context(|| format!("cannot parse release tag {:?}", release.tag_name))?;
-    let latest_str = format!("{}.{}.{}", latest.0, latest.1, latest.2);
-
-    if latest <= cur {
-        log::debug!("latest release {latest_str} is not newer than {current}");
-        return Ok(Outcome::UpToDate);
+    let releases = fetch_releases(agent, api_base)?;
+    let (target, other_major) = select_release(&releases, cur, allow_major);
+    let Some((release, latest)) = target else {
+        return Ok(match other_major {
+            Some(v) => Outcome::MajorAvailable(fmt_version(v)),
+            None => Outcome::UpToDate,
+        });
+    };
+    if let Some(v) = other_major.filter(|_| !allow_major) {
+        log::info!(
+            "ferrous-comics {} (new major version) is also available; it is not installed automatically",
+            fmt_version(v)
+        );
     }
-    if latest.0 != cur.0 && !allow_major {
-        return Ok(Outcome::MajorAvailable(latest_str));
+    let latest_str = fmt_version(latest);
+
+    let _lock = match lock_exe(exe)? {
+        Some(lock) => lock,
+        None => return Ok(Outcome::InProgress),
+    };
+    let installed = installed_version(exe)?;
+    if installed >= latest {
+        log::info!(
+            "{} is already at {} (updated by another run)",
+            exe.display(),
+            fmt_version(installed)
+        );
+        return Ok(Outcome::UpToDate);
     }
 
     let name = asset_name().context("no release binary is published for this platform")?;
@@ -199,13 +262,39 @@ pub fn check_and_install(
     })
 }
 
-/// How long the downloaded binary's `version` self-check may take before it is killed.
+/// How long a `version` query (self-check or installed-version re-check) may take.
 const SELF_CHECK_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Takes an exclusive, non-blocking lock on `<exe>.update.lock`. Returns `None` if another
+/// process holds it. The lock is released when the returned file is dropped.
+fn lock_exe(exe: &Path) -> anyhow::Result<Option<std::fs::File>> {
+    let path = PathBuf::from(format!("{}.update.lock", exe.display()));
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&path)
+        .with_context(|| format!("failed to open update lock {}", path.display()))?;
+    match file.try_lock() {
+        Ok(()) => Ok(Some(file)),
+        Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+        Err(std::fs::TryLockError::Error(e)) => {
+            Err(e).with_context(|| format!("failed to lock {}", path.display()))
+        }
+    }
+}
+
+/// Version of the binary currently on disk at `exe`. This may differ from the running
+/// process if another run already updated it.
+fn installed_version(exe: &Path) -> anyhow::Result<Version> {
+    let reported = query_version(exe, SELF_CHECK_TIMEOUT)?;
+    parse_version(&reported).with_context(|| format!("cannot parse installed version {reported:?}"))
+}
 
 /// Writes `bytes` next to `exe`, verifies the new binary runs and reports `expected_version`,
 /// keeps a copy of the current binary at `<exe>.prev`, then atomically renames the new binary
 /// over `exe`. The running process keeps executing the old code; the new version takes effect
-/// on the next run.
+/// on the next run. Callers must hold the lock from [`lock_exe`].
 fn install(exe: &Path, bytes: &[u8], expected_version: &str) -> anyhow::Result<()> {
     use std::io::Write;
 
@@ -224,13 +313,21 @@ fn install(exe: &Path, bytes: &[u8], expected_version: &str) -> anyhow::Result<(
         .with_context(|| format!("failed to stat {}", exe.display()))?
         .permissions();
 
-    let result = (|| {
-        // create_new: never follow a pre-existing file or symlink at the temp path.
-        let mut f = std::fs::OpenOptions::new()
+    // create_new fails on any existing file or symlink, so a temp path is never followed.
+    // Only files this call created are removed on failure.
+    let create_new = |path: &Path| {
+        std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(&tmp)
-            .with_context(|| format!("failed to create {}", tmp.display()))?;
+            .open(path)
+            .with_context(|| format!("failed to create {}", path.display()))
+    };
+    let mut created_tmp = false;
+    let mut created_prev_tmp = false;
+
+    let result = (|| {
+        let mut f = create_new(&tmp)?;
+        created_tmp = true;
         f.write_all(bytes).context("failed to write new binary")?;
         f.sync_all().context("failed to sync new binary")?;
         drop(f);
@@ -239,8 +336,16 @@ fn install(exe: &Path, bytes: &[u8], expected_version: &str) -> anyhow::Result<(
         self_check(&tmp, expected_version, SELF_CHECK_TIMEOUT)?;
 
         // Back up via temp + rename so a failed copy never clobbers an existing good `.prev`.
-        std::fs::copy(exe, &prev_tmp)
+        let mut backup = create_new(&prev_tmp)?;
+        created_prev_tmp = true;
+        let mut current = std::fs::File::open(exe)
+            .with_context(|| format!("failed to open {}", exe.display()))?;
+        std::io::copy(&mut current, &mut backup)
+            .and_then(|_| backup.sync_all())
             .with_context(|| format!("failed to back up current binary to {}", prev.display()))?;
+        drop(backup);
+        std::fs::set_permissions(&prev_tmp, mode.clone())
+            .with_context(|| format!("failed to set permissions on {}", prev_tmp.display()))?;
         std::fs::rename(&prev_tmp, &prev)
             .with_context(|| format!("failed to back up current binary to {}", prev.display()))?;
         std::fs::rename(&tmp, exe)
@@ -249,8 +354,12 @@ fn install(exe: &Path, bytes: &[u8], expected_version: &str) -> anyhow::Result<(
     })();
 
     if result.is_err() {
-        let _ = std::fs::remove_file(&tmp);
-        let _ = std::fs::remove_file(&prev_tmp);
+        if created_tmp {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        if created_prev_tmp {
+            let _ = std::fs::remove_file(&prev_tmp);
+        }
     }
     result
 }
@@ -258,9 +367,21 @@ fn install(exe: &Path, bytes: &[u8], expected_version: &str) -> anyhow::Result<(
 /// Runs `<bin> version` and checks it exits successfully within `timeout` and reports
 /// `expected_version`. A binary that hangs is killed rather than blocking the caller forever.
 fn self_check(bin: &Path, expected_version: &str, timeout: Duration) -> anyhow::Result<()> {
+    let reported = query_version(bin, timeout).context("downloaded binary failed self-check")?;
+    if reported != expected_version {
+        bail!(
+            "downloaded binary failed self-check: reported version {reported:?}, expected {expected_version}"
+        );
+    }
+    Ok(())
+}
+
+/// Runs `<bin> version` and returns the version it reports (second word of its output).
+/// Fails if it doesn't exit successfully within `timeout`; a hanging binary is killed.
+fn query_version(bin: &Path, timeout: Duration) -> anyhow::Result<String> {
     use std::process::{Command, Stdio};
 
-    // A concurrent fork in another thread can briefly hold our just-closed write fd,
+    // A concurrent fork in another thread can briefly hold a just-closed write fd,
     // making exec fail with ETXTBSY; retry a few times.
     let mut attempt = 0;
     let mut child = loop {
@@ -275,7 +396,7 @@ fn self_check(bin: &Path, expected_version: &str, timeout: Duration) -> anyhow::
                 attempt += 1;
                 std::thread::sleep(Duration::from_millis(50));
             }
-            r => break r.context("failed to run downloaded binary")?,
+            r => break r.with_context(|| format!("failed to run {}", bin.display()))?,
         }
     };
 
@@ -283,7 +404,7 @@ fn self_check(bin: &Path, expected_version: &str, timeout: Duration) -> anyhow::
     let status = loop {
         if let Some(status) = child
             .try_wait()
-            .context("failed to wait for downloaded binary")?
+            .with_context(|| format!("failed to wait for {}", bin.display()))?
         {
             break status;
         }
@@ -291,7 +412,8 @@ fn self_check(bin: &Path, expected_version: &str, timeout: Duration) -> anyhow::
             let _ = child.kill();
             let _ = child.wait();
             bail!(
-                "downloaded binary failed self-check: `version` did not finish within {timeout:?}"
+                "`{} version` did not finish within {timeout:?}",
+                bin.display()
             );
         }
         std::thread::sleep(Duration::from_millis(20));
@@ -300,15 +422,16 @@ fn self_check(bin: &Path, expected_version: &str, timeout: Duration) -> anyhow::
     let mut stdout = String::new();
     if let Some(mut out) = child.stdout.take() {
         out.read_to_string(&mut stdout)
-            .context("failed to read downloaded binary output")?;
+            .with_context(|| format!("failed to read output of {}", bin.display()))?;
     }
-    let reported = stdout.split_whitespace().nth(1).unwrap_or_default();
-    if !status.success() || reported != expected_version {
-        bail!(
-            "downloaded binary failed self-check (exit {status}, reported version {reported:?}, expected {expected_version})"
-        );
+    if !status.success() {
+        bail!("`{} version` exited with {status}", bin.display());
     }
-    Ok(())
+    Ok(stdout
+        .split_whitespace()
+        .nth(1)
+        .unwrap_or_default()
+        .to_string())
 }
 
 /// Gives the new binary the old binary's permissions, making sure the owner can execute it.
@@ -371,6 +494,7 @@ pub(crate) fn report(outcome: Outcome) {
         Outcome::MajorAvailable(v) => log::info!(
             "ferrous-comics {v} is available but is a new major version; review the changelog and run `ferrous-comics update --allow-major` to install it"
         ),
+        Outcome::InProgress => log::info!("another update is in progress; skipping"),
         Outcome::Installed { from, to } => {
             log::info!("updated ferrous-comics {from} -> {to}; takes effect on the next run")
         }
@@ -452,10 +576,24 @@ mod tests {
         server: mockito::ServerGuard,
     }
 
+    /// The "currently installed" binary in fixtures: answers `version` with 1.5.0.
+    fn old_binary() -> Vec<u8> {
+        fake_binary("1.5.0")
+    }
+
+    fn write_executable(path: &Path, bytes: &[u8]) {
+        std::fs::write(path, bytes).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
+
     fn fixture() -> Fixture {
         let dir = tempfile::TempDir::new().unwrap();
         let exe = dir.path().join("ferrous-comics");
-        std::fs::write(&exe, b"old binary").unwrap();
+        write_executable(&exe, &old_binary());
         Fixture {
             _dir: dir,
             exe,
@@ -493,11 +631,20 @@ mod tests {
                 .with_body(format!("{hash}  {name}\n"))
                 .create();
         }
-        f.server
-            .mock("GET", "/releases/latest")
-            .with_body(serde_json::json!({ "tag_name": tag, "assets": assets }).to_string())
-            .create();
+        let release = serde_json::json!({ "tag_name": tag, "assets": assets });
+        mock_release_list(f, vec![release]);
         f.server.mock("GET", "/dl/bin").with_body(binary).create();
+    }
+
+    fn mock_release_list(f: &mut Fixture, releases: Vec<serde_json::Value>) {
+        f.server
+            .mock("GET", "/releases")
+            .match_query(mockito::Matcher::UrlEncoded(
+                "per_page".into(),
+                "100".into(),
+            ))
+            .with_body(serde_json::Value::Array(releases).to_string())
+            .create();
     }
 
     #[test]
@@ -507,7 +654,7 @@ mod tests {
             mock_release(&mut f, tag, b"", None);
             let out = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap();
             assert_eq!(out, Outcome::UpToDate, "{tag}");
-            assert_eq!(std::fs::read(&f.exe).unwrap(), b"old binary");
+            assert_eq!(std::fs::read(&f.exe).unwrap(), old_binary());
         }
     }
 
@@ -517,7 +664,7 @@ mod tests {
         mock_release(&mut f, "v2.0.0", b"", None);
         let out = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap();
         assert_eq!(out, Outcome::MajorAvailable("2.0.0".into()));
-        assert_eq!(std::fs::read(&f.exe).unwrap(), b"old binary");
+        assert_eq!(std::fs::read(&f.exe).unwrap(), old_binary());
     }
 
     #[cfg(unix)]
@@ -541,7 +688,7 @@ mod tests {
         );
         assert_eq!(std::fs::read(&f.exe).unwrap(), bin);
         let prev = PathBuf::from(format!("{}.prev", f.exe.display()));
-        assert_eq!(std::fs::read(prev).unwrap(), b"old binary");
+        assert_eq!(std::fs::read(prev).unwrap(), old_binary());
         // No temp files left behind.
         let leftovers: Vec<_> = std::fs::read_dir(f.exe.parent().unwrap())
             .unwrap()
@@ -575,7 +722,7 @@ mod tests {
         mock_release(&mut f, "v1.6.0", &bin, Some(&sha256_hex(b"something else")));
         let err = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap_err();
         assert!(format!("{err:#}").contains("checksum mismatch"), "{err:#}");
-        assert_eq!(std::fs::read(&f.exe).unwrap(), b"old binary");
+        assert_eq!(std::fs::read(&f.exe).unwrap(), old_binary());
     }
 
     #[test]
@@ -595,7 +742,7 @@ mod tests {
         );
         let err = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap_err();
         assert!(format!("{err:#}").contains("GitHub reports"), "{err:#}");
-        assert_eq!(std::fs::read(&f.exe).unwrap(), b"old binary");
+        assert_eq!(std::fs::read(&f.exe).unwrap(), old_binary());
     }
 
     #[cfg(unix)]
@@ -620,7 +767,7 @@ mod tests {
         mock_release(&mut f, "v1.6.0", &fake_binary("1.6.0"), None);
         let err = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap_err();
         assert!(format!("{err:#}").contains("SHA256SUMS"), "{err:#}");
-        assert_eq!(std::fs::read(&f.exe).unwrap(), b"old binary");
+        assert_eq!(std::fs::read(&f.exe).unwrap(), old_binary());
     }
 
     #[cfg(unix)]
@@ -634,7 +781,7 @@ mod tests {
         mock_release(&mut f, "v1.6.0", &bin, Some(&sha256_hex(&bin)));
         let err = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap_err();
         assert!(format!("{err:#}").contains("self-check"), "{err:#}");
-        assert_eq!(std::fs::read(&f.exe).unwrap(), b"old binary");
+        assert_eq!(std::fs::read(&f.exe).unwrap(), old_binary());
         assert!(!PathBuf::from(format!("{}.prev", f.exe.display())).exists());
     }
 
@@ -642,7 +789,8 @@ mod tests {
     fn api_error_is_reported() {
         let mut f = fixture();
         f.server
-            .mock("GET", "/releases/latest")
+            .mock("GET", "/releases")
+            .match_query(mockito::Matcher::Any)
             .with_status(403)
             .create();
         let err = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap_err();
@@ -650,10 +798,19 @@ mod tests {
     }
 
     #[test]
-    fn unparseable_tag_is_error() {
+    fn unparseable_and_prerelease_tags_are_ignored() {
         let mut f = fixture();
-        mock_release(&mut f, "nightly", b"", None);
-        assert!(check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).is_err());
+        mock_release_list(
+            &mut f,
+            vec![
+                serde_json::json!({ "tag_name": "nightly", "assets": [] }),
+                serde_json::json!({ "tag_name": "v1.6.0-rc1", "assets": [] }),
+                serde_json::json!({ "tag_name": "v1.7.0", "prerelease": true, "assets": [] }),
+                serde_json::json!({ "tag_name": "v1.8.0", "draft": true, "assets": [] }),
+            ],
+        );
+        let out = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap();
+        assert_eq!(out, Outcome::UpToDate);
     }
 
     // ── self_check ────────────────────────────────────────────────────────────
@@ -692,5 +849,123 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let bin = script(dir.path(), "echo 'ferrous-comics 1.6.0 (abc)'; exit 1");
         assert!(self_check(&bin, "1.6.0", Duration::from_secs(10)).is_err());
+    }
+
+    // ── select_release ────────────────────────────────────────────────────────
+
+    fn rel(tag: &str) -> Release {
+        Release {
+            tag_name: tag.into(),
+            draft: false,
+            prerelease: false,
+            assets: vec![],
+        }
+    }
+
+    #[test]
+    fn select_prefers_newest_in_current_major_when_newer_major_is_latest() {
+        let releases = [rel("v2.0.0"), rel("v1.7.0"), rel("v1.6.0"), rel("v1.4.0")];
+        let (target, other) = select_release(&releases, (1, 5, 0), false);
+        assert_eq!(target.map(|(_, v)| v), Some((1, 7, 0)));
+        assert_eq!(other, Some((2, 0, 0)));
+    }
+
+    #[test]
+    fn select_with_allow_major_takes_newest_overall() {
+        let releases = [rel("v1.7.0"), rel("v2.1.0"), rel("v2.0.0")];
+        let (target, other) = select_release(&releases, (1, 5, 0), true);
+        assert_eq!(target.map(|(_, v)| v), Some((2, 1, 0)));
+        assert_eq!(other, Some((2, 1, 0)));
+    }
+
+    #[test]
+    fn select_nothing_newer() {
+        let releases = [rel("v1.5.0"), rel("v1.4.0")];
+        assert!(matches!(
+            select_release(&releases, (1, 5, 0), false),
+            (None, None)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installs_in_major_fix_when_newer_major_is_latest() {
+        if asset_name().is_none() {
+            return;
+        }
+        let mut f = fixture();
+        let bin = fake_binary("1.6.0");
+        let name = asset_name().unwrap();
+        let base = f.server.url();
+        f.server.mock("GET", "/dl/bin").with_body(&bin).create();
+        f.server
+            .mock("GET", "/dl/sums")
+            .with_body(format!("{}  {name}\n", sha256_hex(&bin)))
+            .create();
+        // v2.0.0 is the newest release overall; only v1.6.0 is in the current major.
+        let v20 = serde_json::json!({ "tag_name": "v2.0.0", "assets": [] });
+        let v16 = serde_json::json!({ "tag_name": "v1.6.0", "assets": [
+            { "name": name, "browser_download_url": format!("{base}/dl/bin") },
+            { "name": "SHA256SUMS", "browser_download_url": format!("{base}/dl/sums") },
+        ]});
+        mock_release_list(&mut f, vec![v20, v16]);
+
+        let out = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap();
+        assert_eq!(
+            out,
+            Outcome::Installed {
+                from: "1.5.0".into(),
+                to: "1.6.0".into()
+            }
+        );
+    }
+
+    // ── concurrency / backup safety ───────────────────────────────────────────
+
+    #[test]
+    fn skips_when_another_update_holds_lock() {
+        let mut f = fixture();
+        let bin = fake_binary("1.6.0");
+        mock_release(&mut f, "v1.6.0", &bin, Some(&sha256_hex(&bin)));
+        let _held = lock_exe(&f.exe).unwrap().expect("lock is free");
+        let out = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap();
+        assert_eq!(out, Outcome::InProgress);
+        assert_eq!(std::fs::read(&f.exe).unwrap(), old_binary());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn skips_when_installed_binary_already_updated() {
+        let mut f = fixture();
+        // Another run already replaced the binary with 1.6.0, but this process is still 1.5.0.
+        write_executable(&f.exe, &fake_binary("1.6.0"));
+        let bin = fake_binary("1.6.0");
+        mock_release(&mut f, "v1.6.0", &bin, Some(&sha256_hex(&bin)));
+        let out = check_and_install(&agent(), &f.server.url(), "1.5.0", &f.exe, false).unwrap();
+        assert_eq!(out, Outcome::UpToDate);
+        assert!(!PathBuf::from(format!("{}.prev", f.exe.display())).exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_refuses_planted_symlink_at_backup_temp_path() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let exe = dir.path().join("ferrous-comics");
+        write_executable(&exe, &old_binary());
+        let victim = dir.path().join("victim");
+        std::fs::write(&victim, b"precious").unwrap();
+        let planted = dir
+            .path()
+            .join(format!(".ferrous-comics.prev-{}", std::process::id()));
+        std::os::unix::fs::symlink(&victim, &planted).unwrap();
+
+        assert!(install(&exe, &fake_binary("1.6.0"), "1.6.0").is_err());
+
+        assert_eq!(std::fs::read(&victim).unwrap(), b"precious");
+        assert!(
+            planted.symlink_metadata().is_ok(),
+            "planted file must not be removed"
+        );
+        assert_eq!(std::fs::read(&exe).unwrap(), old_binary());
     }
 }
