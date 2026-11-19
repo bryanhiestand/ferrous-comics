@@ -83,6 +83,8 @@ jobs:
           cp target/x86_64-unknown-linux-gnu/release/ferrous-comics ferrous-comics-linux-amd64
           cp target/aarch64-unknown-linux-gnu/release/ferrous-comics ferrous-comics-linux-arm64
           cp target/aarch64-apple-darwin/release/ferrous-comics ferrous-comics-darwin-arm64
+          # Required by `ferrous-comics update`, which refuses releases without it
+          sha256sum ferrous-comics-linux-amd64 ferrous-comics-linux-arm64 ferrous-comics-darwin-arm64 > SHA256SUMS
 
       - name: Commit, tag, and release
         if: steps.bump.outputs.release == 'true'
@@ -114,4 +116,5 @@ jobs:
             --target "$(git rev-parse HEAD)" \
             ferrous-comics-linux-amd64 \
             ferrous-comics-linux-arm64 \
-            ferrous-comics-darwin-arm64
+            ferrous-comics-darwin-arm64 \
+            SHA256SUMS

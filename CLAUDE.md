@@ -19,7 +19,7 @@ When changing function behavior or signature, update tests in `#[cfg(test)]` mod
 
 ## Architecture
 
-Single-binary Rust CLI, five source files:
+Single-binary Rust CLI, six source files:
 
 | File | Contents |
 |---|---|
@@ -28,8 +28,11 @@ Single-binary Rust CLI, five source files:
 | `src/db.rs` | `ComicRecord`, all redb DB functions, `cmd_dump` |
 | `src/http.rs` | `Comic` struct, `fetch_comic`, `fetch_comic_by_num`, `download_image` |
 | `src/email.rs` | `build_email`, `send_email`, `escape_html`, `format_date` |
+| `src/update.rs` | Self-update from GitHub Releases: `check_and_install`, `auto_update`, `parse_version` |
 
-**Flow:** `main()` → `load_config` → `fetch_comic` → `last_seen_num` → backfill candidates → for each: `is_seen` → `record_first_seen` → optionally `download_image` → `send_email` → `record_email_success`
+**Flow:** `main()` → `load_config` → `fetch_comic` → `last_seen_num` → backfill candidates → for each: `is_seen` → `record_first_seen` → optionally `download_image` → `send_email` → `record_email_success`. Then, if `XKCD_AUTO_UPDATE`, `update::auto_update` (throttled to once per 24h; runs even if comic processing failed).
+
+**Self-update** (`update` subcommand / `XKCD_AUTO_UPDATE`): never crosses a major version without `--allow-major` — one-way changes (e.g. DB format migrations) must bump major. Requires the `SHA256SUMS` release asset produced by `release-plz.yml`; verifies hash, runs the new binary's `version` as a self-check, keeps `<exe>.prev`, atomic rename.
 
 **Config** loaded from `.env` via `dotenvy`, all vars prefixed `XKCD_`. `env_bool` trims whitespace before matching. Username and password must both be set or both unset — validated at startup.
 

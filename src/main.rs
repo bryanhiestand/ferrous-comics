@@ -2,11 +2,12 @@ mod config;
 mod db;
 mod email;
 mod http;
+mod update;
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use config::load_config;
+use config::{Config, load_config};
 use db::{
     cmd_dump, is_seen, last_seen_num, migrate_history_file, open_db, record_download_success,
     record_email_success, record_first_seen,
@@ -35,6 +36,10 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if std::env::args().nth(1).as_deref() == Some("update") {
+        return cmd_update(&make_agent());
+    }
+
     let db_path = std::env::var("XKCD_DB_PATH")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from("xkcd_comics.db"));
@@ -48,17 +53,55 @@ fn main() -> anyhow::Result<()> {
 
     let config = load_config()?;
 
-    let agent = ureq::AgentBuilder::new()
+    let agent = make_agent();
+
+    let result = process_comics(&config, &db, &agent);
+
+    // Runs even when comic processing failed, so a broken release can be replaced by a fix.
+    if config.auto_update {
+        let stamp = PathBuf::from(format!("{}.update-check", db_path.display()));
+        if let Err(e) = update::auto_update(&agent, &stamp) {
+            log::warn!("auto-update failed: {e:#}");
+        }
+    }
+
+    result
+}
+
+fn make_agent() -> ureq::Agent {
+    ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(30))
         .timeout(Duration::from_secs(60))
-        .build();
+        .build()
+}
 
-    let latest = fetch_comic(&agent, XKCD_BASE_URL)?;
+fn cmd_update(agent: &ureq::Agent) -> anyhow::Result<()> {
+    let mut allow_major = false;
+    for arg in std::env::args().skip(2) {
+        match arg.as_str() {
+            "--allow-major" => allow_major = true,
+            other => anyhow::bail!("unknown argument for update: {other}"),
+        }
+    }
+    let exe = update::current_exe()?;
+    let outcome = update::check_and_install(
+        agent,
+        update::GITHUB_API_BASE,
+        update::CURRENT_VERSION,
+        &exe,
+        allow_major,
+    )?;
+    update::report(outcome);
+    Ok(())
+}
+
+fn process_comics(config: &Config, db: &redb::Database, agent: &ureq::Agent) -> anyhow::Result<()> {
+    let latest = fetch_comic(agent, XKCD_BASE_URL)?;
 
     // Determine which comic numbers to process this run, oldest first.
     // When there is no history and backfill is enabled, start far enough back so that
     // exactly backfill_limit comics are delivered on the first run.
-    let last = last_seen_num(&db)?;
+    let last = last_seen_num(db)?;
     let start = last.map(|n| n.saturating_add(1)).unwrap_or_else(|| {
         if config.backfill_limit > 0 {
             latest.num.saturating_sub(config.backfill_limit - 1)
@@ -83,13 +126,13 @@ fn main() -> anyhow::Result<()> {
         let comic = if num == latest.num {
             latest.clone()
         } else {
-            match fetch_comic_by_num(&agent, XKCD_BASE_URL, num) {
+            match fetch_comic_by_num(agent, XKCD_BASE_URL, num) {
                 Ok(Some(c)) => c,
                 Ok(None) => {
                     // Comic intentionally doesn't exist (e.g. #404). Mark seen so we advance past it.
                     log::info!("comic #{num} does not exist, marking as seen");
                     record_first_seen(
-                        &db,
+                        db,
                         &Comic {
                             num,
                             safe_title: String::new(),
@@ -109,18 +152,18 @@ fn main() -> anyhow::Result<()> {
             }
         };
 
-        if is_seen(&db, &comic)? {
+        if is_seen(db, &comic)? {
             log::info!("comic #{} already seen, skipping", comic.num);
             continue;
         }
 
         // Mark seen immediately — prevents duplicate emails if a later step fails and cron retries.
-        record_first_seen(&db, &comic)?;
+        record_first_seen(db, &comic)?;
 
         let image_path = if config.download {
-            match download_image(&agent, &comic, Path::new(COMIC_DIR)) {
+            match download_image(agent, &comic, Path::new(COMIC_DIR)) {
                 Ok(path) => {
-                    record_download_success(&db, comic.num)?;
+                    record_download_success(db, comic.num)?;
                     Some(path)
                 }
                 Err(e) => {
@@ -138,11 +181,11 @@ fn main() -> anyhow::Result<()> {
             None
         };
 
-        if let Err(e) = send_email(&config, &comic, attachment_path) {
+        if let Err(e) = send_email(config, &comic, attachment_path) {
             log::warn!("failed to email comic #{}: {e:#}", comic.num);
             continue;
         }
-        record_email_success(&db, comic.num)?;
+        record_email_success(db, comic.num)?;
     }
 
     Ok(())

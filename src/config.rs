@@ -12,6 +12,7 @@ pub struct Config {
     pub smtp_username: Option<String>,
     pub smtp_password: Option<String>,
     pub backfill_limit: u32,
+    pub auto_update: bool,
 }
 
 pub fn load_config() -> anyhow::Result<Config> {
@@ -47,6 +48,7 @@ pub fn load_config() -> anyhow::Result<Config> {
             .unwrap_or_else(|_| "5".into())
             .parse()
             .context("XKCD_BACKFILL_LIMIT must be a non-negative integer")?,
+        auto_update: env_bool("XKCD_AUTO_UPDATE", false),
     };
 
     validate_config(&config)?;
@@ -102,6 +104,7 @@ pub(crate) fn make_config() -> Config {
         smtp_username: None,
         smtp_password: None,
         backfill_limit: 0,
+        auto_update: false,
     }
 }
 
