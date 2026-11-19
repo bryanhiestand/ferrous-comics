@@ -16,7 +16,7 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - uses: cargo-bins/cargo-binstall@5aafaaca52423a22d83a812fa3ca77492e2895db  # main
       - name: Install CI tools
         run: cargo binstall --no-confirm --force cargo-audit@0.22.1 cargo-machete@0.9.1
@@ -38,7 +38,7 @@ jobs:
         with:
           toolchain: stable
           targets: aarch64-apple-darwin
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - name: Cache cargo-zigbuild
         id: cache-zigbuild
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
