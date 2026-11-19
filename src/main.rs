@@ -45,18 +45,32 @@ fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| PathBuf::from("xkcd_comics.db"));
     let is_dump = std::env::args().nth(1).as_deref() == Some("dump");
 
+    // Read straight from the environment: config loading may fail inside `run`.
+    let auto_update = !is_dump && config::env_bool("XKCD_AUTO_UPDATE", false);
+
     // The database is opened and closed inside `run`, so it is not held during the update check.
-    let result = run(&db_path, is_dump);
+    run_then_update(
+        || run(&db_path, is_dump),
+        auto_update,
+        || {
+            let stamp = PathBuf::from(format!("{}.update-check", db_path.display()));
+            update::auto_update(&make_agent(), &stamp)
+        },
+    )
+}
 
-    // Runs after any failure too (DB open, config, comic processing), so a broken release can
-    // be replaced by a fix. Read straight from the environment: config loading may have failed.
-    if !is_dump && config::env_bool("XKCD_AUTO_UPDATE", false) {
-        let stamp = PathBuf::from(format!("{}.update-check", db_path.display()));
-        if let Err(e) = update::auto_update(&make_agent(), &stamp) {
-            log::warn!("auto-update failed: {e:#}");
-        }
+/// Runs `run`, then (if `auto_update`) `update`, even when `run` failed, so a broken release can
+/// be replaced by a fix. Update failures are logged, never returned: the result is always
+/// `run`'s, so cron still sees the real outcome of the comic run.
+fn run_then_update(
+    run: impl FnOnce() -> anyhow::Result<()>,
+    auto_update: bool,
+    update: impl FnOnce() -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    let result = run();
+    if auto_update && let Err(e) = update() {
+        log::warn!("auto-update failed: {e:#}");
     }
-
     result
 }
 
@@ -199,6 +213,55 @@ fn process_comics(config: &Config, db: &redb::Database, agent: &ureq::Agent) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
+
+    // ── run_then_update ───────────────────────────────────────────────────────
+
+    #[test]
+    fn update_runs_after_failed_run_and_original_error_is_kept() {
+        let updated = Cell::new(false);
+        let res = run_then_update(
+            || anyhow::bail!("db open failed"),
+            true,
+            || {
+                updated.set(true);
+                Ok(())
+            },
+        );
+        assert!(updated.get(), "update must run even though run failed");
+        assert_eq!(res.unwrap_err().to_string(), "db open failed");
+    }
+
+    #[test]
+    fn update_failure_does_not_change_successful_result() {
+        let res = run_then_update(|| Ok(()), true, || anyhow::bail!("github down"));
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn update_failure_does_not_mask_run_error() {
+        let res = run_then_update(
+            || anyhow::bail!("smtp failed"),
+            true,
+            || anyhow::bail!("github down"),
+        );
+        assert_eq!(res.unwrap_err().to_string(), "smtp failed");
+    }
+
+    #[test]
+    fn update_skipped_when_disabled() {
+        let updated = Cell::new(false);
+        run_then_update(
+            || Ok(()),
+            false,
+            || {
+                updated.set(true);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(!updated.get());
+    }
     use db::{COMICS_TABLE, ComicRecord};
     use http::make_comic;
     use redb::ReadableDatabase;
