@@ -401,6 +401,21 @@ fn query_version(bin: &Path, timeout: Duration) -> anyhow::Result<String> {
     };
 
     let deadline = std::time::Instant::now() + timeout;
+
+    // Read stdout on a separate thread so a descendant process that inherits the pipe and
+    // keeps it open can't block us past the deadline. If that happens the thread is left
+    // blocked; it holds no locks and ends when the process exits.
+    let (tx, rx) = std::sync::mpsc::channel();
+    if let Some(out) = child.stdout.take() {
+        std::thread::spawn(move || {
+            let mut buf = String::new();
+            let res = out.take(64 * 1024).read_to_string(&mut buf).map(|_| buf);
+            let _ = tx.send(res);
+        });
+    } else {
+        let _ = tx.send(Ok(String::new()));
+    }
+
     let status = loop {
         if let Some(status) = child
             .try_wait()
@@ -419,11 +434,14 @@ fn query_version(bin: &Path, timeout: Duration) -> anyhow::Result<String> {
         std::thread::sleep(Duration::from_millis(20));
     };
 
-    let mut stdout = String::new();
-    if let Some(mut out) = child.stdout.take() {
-        out.read_to_string(&mut stdout)
-            .with_context(|| format!("failed to read output of {}", bin.display()))?;
-    }
+    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+    let stdout = match rx.recv_timeout(remaining) {
+        Ok(res) => res.with_context(|| format!("failed to read output of {}", bin.display()))?,
+        Err(_) => bail!(
+            "`{} version` exited but its output did not close within {timeout:?}",
+            bin.display()
+        ),
+    };
     if !status.success() {
         bail!("`{} version` exited with {status}", bin.display());
     }
@@ -468,24 +486,37 @@ pub(crate) fn check_due(stamp: &Path, interval: Duration) -> bool {
 
 /// Throttled, best-effort update used after a normal run when `XKCD_AUTO_UPDATE` is enabled.
 /// The stamp file is touched before checking, so a persistently failing check is retried at
-/// most once per interval.
+/// most once per interval. If the stamp can't be written (e.g. the database directory is
+/// missing), the check still runs, unthrottled, so recovery from a broken release is not
+/// blocked by the same fault.
 pub fn auto_update(agent: &ureq::Agent, stamp: &Path) -> anyhow::Result<()> {
+    let exe = current_exe()?;
+    if let Some(outcome) = throttled_check(agent, GITHUB_API_BASE, CURRENT_VERSION, &exe, stamp)? {
+        report(outcome);
+    }
+    Ok(())
+}
+
+/// Returns `None` when the check isn't due yet.
+fn throttled_check(
+    agent: &ureq::Agent,
+    api_base: &str,
+    current: &str,
+    exe: &Path,
+    stamp: &Path,
+) -> anyhow::Result<Option<Outcome>> {
     if !check_due(stamp, AUTO_CHECK_INTERVAL) {
         log::debug!("update check not due yet ({})", stamp.display());
-        return Ok(());
+        return Ok(None);
     }
-    std::fs::write(stamp, b"")
-        .with_context(|| format!("failed to write update stamp {}", stamp.display()))?;
+    if let Err(e) = std::fs::write(stamp, b"") {
+        log::warn!(
+            "failed to write update stamp {} ({e}); checking anyway",
+            stamp.display()
+        );
+    }
 
-    let exe = current_exe()?;
-    report(check_and_install(
-        agent,
-        GITHUB_API_BASE,
-        CURRENT_VERSION,
-        &exe,
-        false,
-    )?);
-    Ok(())
+    check_and_install(agent, api_base, current, exe, false).map(Some)
 }
 
 pub(crate) fn report(outcome: Outcome) {
@@ -967,5 +998,53 @@ mod tests {
             "planted file must not be removed"
         );
         assert_eq!(std::fs::read(&exe).unwrap(), old_binary());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn self_check_not_blocked_by_descendant_holding_stdout() {
+        let dir = tempfile::TempDir::new().unwrap();
+        // Prints the version, then leaves a background process holding stdout open.
+        let bin = script(dir.path(), "echo 'ferrous-comics 1.6.0 (abc)'; sleep 30 &");
+        let start = std::time::Instant::now();
+        let res = self_check(&bin, "1.6.0", Duration::from_millis(500));
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "blocked on inherited stdout"
+        );
+        let err = res.unwrap_err();
+        assert!(format!("{err:#}").contains("did not close"), "{err:#}");
+    }
+
+    #[test]
+    fn throttled_check_runs_and_stamps_once_per_interval() {
+        let mut f = fixture();
+        mock_release_list(&mut f, vec![]);
+        let stamp = f.exe.with_file_name("db.update-check");
+        let first = throttled_check(&agent(), &f.server.url(), "1.5.0", &f.exe, &stamp).unwrap();
+        assert_eq!(first, Some(Outcome::UpToDate));
+        assert!(stamp.exists());
+        let second = throttled_check(&agent(), &f.server.url(), "1.5.0", &f.exe, &stamp).unwrap();
+        assert_eq!(
+            second, None,
+            "second check within the interval must be skipped"
+        );
+    }
+
+    #[test]
+    fn throttled_check_still_runs_when_stamp_unwritable() {
+        let mut f = fixture();
+        let list = f
+            .server
+            .mock("GET", "/releases")
+            .match_query(mockito::Matcher::Any)
+            .with_body("[]")
+            .expect(1)
+            .create();
+        // Parent directory doesn't exist, so the stamp can't be written.
+        let stamp = f.exe.with_file_name("missing-dir").join("db.update-check");
+        let out = throttled_check(&agent(), &f.server.url(), "1.5.0", &f.exe, &stamp).unwrap();
+        assert_eq!(out, Some(Outcome::UpToDate));
+        list.assert();
     }
 }
