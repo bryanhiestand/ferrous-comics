@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 
 
+## [1.4.7] - 2026-11-19
+
+### Bug Fixes
+- Bump lettre and rustls deps for RustSec advisories
+
+
 ## [1.4.6] - 2026-05-30
 
 ### Bug Fixes
