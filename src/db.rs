@@ -2,7 +2,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 use serde::{Deserialize, Serialize};
 
 use crate::http::Comic;
@@ -20,8 +20,96 @@ pub struct ComicRecord {
     pub email_sent_utc: Option<i64>,
 }
 
+/// Opens (or creates) the database. Databases written by older releases (redb 2.x, file format
+/// v2) are upgraded in place to the v3 format on first open; see [`upgrade_legacy_db`].
 pub fn open_db(path: &Path) -> anyhow::Result<Database> {
-    Database::create(path).with_context(|| format!("failed to open database at {}", path.display()))
+    match Database::create(path) {
+        Err(redb::DatabaseError::UpgradeRequired(version)) => {
+            upgrade_legacy_db(path, version)?;
+            Database::create(path).with_context(|| {
+                format!(
+                    "failed to open database at {} after upgrade",
+                    path.display()
+                )
+            })
+        }
+        result => result.with_context(|| format!("failed to open database at {}", path.display())),
+    }
+}
+
+/// One-time migration: upgrades a redb file-format-v2 database to v3 using redb 2.6's
+/// `Database::upgrade()` (redb 3+ cannot read v2). Before upgrading, a copy of the file is
+/// written to `<path>.v<version>.bak`. An existing backup is never overwritten: the first one
+/// is the copy taken before any upgrade attempt, and a retry after an interrupted upgrade (or an
+/// overlapping run) could otherwise replace it with a partially-upgraded or torn copy.
+/// If an upgrade is interrupted, redb 2.6 repairs and finishes it on the next open.
+fn upgrade_legacy_db(path: &Path, version: u8) -> anyhow::Result<()> {
+    if version < 2 {
+        anyhow::bail!(
+            "database {} uses redb file format v{version}, which this version cannot upgrade",
+            path.display()
+        );
+    }
+
+    let backup = PathBuf::from(format!("{}.v{version}.bak", path.display()));
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&backup)
+    {
+        Ok(mut dst) => {
+            let copied = std::fs::File::open(path)
+                .and_then(|mut src| std::io::copy(&mut src, &mut dst))
+                .and_then(|_| dst.sync_all());
+            if let Err(e) = copied {
+                drop(dst);
+                let _ = std::fs::remove_file(&backup);
+                return Err(e).with_context(|| {
+                    format!(
+                        "failed to back up legacy database {} to {}",
+                        path.display(),
+                        backup.display()
+                    )
+                });
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            log::info!(
+                "keeping existing backup {} from an earlier upgrade attempt",
+                backup.display()
+            );
+        }
+        Err(e) => {
+            return Err(e)
+                .with_context(|| format!("failed to create database backup {}", backup.display()));
+        }
+    }
+
+    let mut legacy = redb2::Database::open(path).with_context(|| {
+        format!(
+            "failed to open legacy database {} (file format v{version}) for upgrade",
+            path.display()
+        )
+    })?;
+    let upgraded = legacy
+        .upgrade()
+        .with_context(|| format!("failed to upgrade legacy database {}", path.display()))?;
+    drop(legacy);
+
+    if upgraded {
+        log::info!(
+            "upgraded database {} from file format v{version} to v3 (backup: {})",
+            path.display(),
+            backup.display()
+        );
+    } else {
+        log::info!(
+            "completed interrupted upgrade of database {} to file format v3 (backup: {})",
+            path.display(),
+            backup.display()
+        );
+    }
+    Ok(())
 }
 
 /// One-time migration: imports comic numbers from a legacy history file into the database,
@@ -307,6 +395,102 @@ mod tests {
         let mut out = Vec::new();
         cmd_dump(&db, &mut out).unwrap();
         assert!(out.is_empty());
+    }
+
+    // ── open_db / legacy redb v2 upgrade ──────────────────────────────────────
+
+    const LEGACY_TABLE: redb2::TableDefinition<u32, &str> = redb2::TableDefinition::new("comics");
+
+    /// Writes a database the way released versions on redb 2.x did (file format v2).
+    fn write_legacy_v2_db(path: &Path, records: &[(u32, &str)]) {
+        let db = redb2::Database::create(path).unwrap();
+        let wtx = db.begin_write().unwrap();
+        {
+            let mut table = wtx.open_table(LEGACY_TABLE).unwrap();
+            for (num, json) in records {
+                table.insert(*num, *json).unwrap();
+            }
+        }
+        wtx.commit().unwrap();
+    }
+
+    #[test]
+    fn open_db_creates_new_without_backup() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("new.db");
+        let db = open_db(&path).unwrap();
+        assert_eq!(last_seen_num(&db).unwrap(), None);
+        assert!(!dir.path().join("new.db.v2.bak").exists());
+    }
+
+    #[test]
+    fn open_db_upgrades_legacy_v2_and_preserves_records() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("legacy.db");
+        let rec1 = r#"{"num":1,"first_seen_utc":0,"image_downloaded":false,"email_sent":true,"email_sent_utc":null}"#;
+        let rec5 = r#"{"num":5,"first_seen_utc":1700000000,"image_downloaded":true,"email_sent":false,"email_sent_utc":null}"#;
+        write_legacy_v2_db(&path, &[(1, rec1), (5, rec5)]);
+
+        // Precondition: redb 4 really can't open the legacy file directly.
+        assert!(matches!(
+            Database::create(&path),
+            Err(redb::DatabaseError::UpgradeRequired(2))
+        ));
+        let original = std::fs::read(&path).unwrap();
+
+        let db = open_db(&path).unwrap();
+
+        // Records survive byte-for-byte, so seen comics are not re-emailed.
+        let mut out = Vec::new();
+        cmd_dump(&db, &mut out).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap(), format!("{rec1}\n{rec5}\n"));
+        assert_eq!(last_seen_num(&db).unwrap(), Some(5));
+        assert!(is_seen(&db, &make_comic(1)).unwrap());
+        assert!(!is_seen(&db, &make_comic(2)).unwrap());
+
+        // Upgraded DB is writable.
+        record_email_success(&db, 5).unwrap();
+
+        // Backup is an exact copy of the pre-upgrade file.
+        let backup = dir.path().join("legacy.db.v2.bak");
+        assert_eq!(std::fs::read(&backup).unwrap(), original);
+    }
+
+    #[test]
+    fn open_db_upgrade_is_one_time() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("legacy.db");
+        write_legacy_v2_db(&path, &[(7, "{}")]);
+
+        drop(open_db(&path).unwrap());
+        let backup = dir.path().join("legacy.db.v2.bak");
+        std::fs::remove_file(&backup).unwrap();
+
+        // Second open is a plain v3 open: no new backup, data intact.
+        let db = open_db(&path).unwrap();
+        assert!(!backup.exists());
+        assert_eq!(last_seen_num(&db).unwrap(), Some(7));
+    }
+
+    #[test]
+    fn open_db_upgrade_keeps_existing_backup() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("legacy.db");
+        write_legacy_v2_db(&path, &[(3, "{}")]);
+        let backup = dir.path().join("legacy.db.v2.bak");
+        std::fs::write(&backup, b"earlier backup").unwrap();
+
+        let db = open_db(&path).unwrap();
+        assert_eq!(last_seen_num(&db).unwrap(), Some(3));
+        assert_eq!(std::fs::read(&backup).unwrap(), b"earlier backup");
+    }
+
+    #[test]
+    fn open_db_rejects_garbage_file() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("garbage.db");
+        std::fs::write(&path, b"definitely not a redb database").unwrap();
+        assert!(open_db(&path).is_err());
     }
 
     // ── migrate_history_file ──────────────────────────────────────────────────
