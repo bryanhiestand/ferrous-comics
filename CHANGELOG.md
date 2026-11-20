@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 
 
+## [1.6.0] - 2026-11-20
+
+### Features
+- Add self-update from GitHub Releases ([#60](https://github.com/bryanhiestand/ferrous-comics/pull/60))
+
+
 ## [1.5.0] - 2026-11-19
 
 ### Features
