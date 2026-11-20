@@ -14,16 +14,18 @@ pub struct Config {
     pub backfill_limit: u32,
 }
 
+/// Reads a boolean env var: `true`/`1`/`yes` (case-insensitive, trimmed) are true, any other
+/// value is false, and an unset var yields `default`.
+pub(crate) fn env_bool(key: &str, default: bool) -> bool {
+    match std::env::var(key) {
+        Ok(v) => matches!(v.trim().to_ascii_lowercase().as_str(), "true" | "1" | "yes"),
+        Err(_) => default,
+    }
+}
+
 pub fn load_config() -> anyhow::Result<Config> {
     fn env(key: &str) -> anyhow::Result<String> {
         std::env::var(key).with_context(|| format!("missing env var {key}"))
-    }
-
-    fn env_bool(key: &str, default: bool) -> bool {
-        match std::env::var(key) {
-            Ok(v) => matches!(v.trim().to_ascii_lowercase().as_str(), "true" | "1" | "yes"),
-            Err(_) => default,
-        }
     }
 
     let config = Config {
