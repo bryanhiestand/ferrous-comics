@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 
 
+## [1.7.0] - 2026-11-21
+
+### Features
+- Show version in email footer ([#61](https://github.com/bryanhiestand/ferrous-comics/pull/61))
+
+
 ## [1.6.0] - 2026-11-20
 
 ### Features
