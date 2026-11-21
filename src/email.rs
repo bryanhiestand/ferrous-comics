@@ -68,7 +68,7 @@ pub(crate) fn build_email(
 <div class="meta">#{num} &middot; {date}</div>
 <div class="comic"><a href="{url}"><img src="{img}" alt="{alt}" title="{title}" style="max-width:100%;display:block"></a></div>
 <div class="alt">{alt}</div>
-<div class="footer">Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comics</a></div>
+<div class="footer">Mailed by <a href="https://github.com/bryanhiestand/ferrous-comics">ferrous-comics</a> v{version}</div>
 </body>
 </html>"#,
         url = escape_html(&comic_url),
@@ -77,6 +77,7 @@ pub(crate) fn build_email(
         alt = escape_html(&comic.alt),
         num = comic.num,
         date = escape_html(&date_str),
+        version = escape_html(crate::update::CURRENT_VERSION),
     );
 
     let alternative = MultiPart::alternative()
@@ -310,6 +311,20 @@ mod tests {
         assert!(
             raw.contains("&middot;"),
             "middot separator missing from meta line"
+        );
+    }
+
+    #[test]
+    fn email_html_footer_has_version() {
+        let config = make_config();
+        let comic = make_comic(1);
+        let raw = email_bytes(&config, &comic, None);
+        // Undo quoted-printable soft line breaks so the footer is contiguous.
+        let unwrapped = raw.replace("=\r\n", "");
+        let expected = format!("ferrous-comics</a> v{}</div>", env!("CARGO_PKG_VERSION"));
+        assert!(
+            unwrapped.contains(&expected),
+            "footer missing version string"
         );
     }
 
